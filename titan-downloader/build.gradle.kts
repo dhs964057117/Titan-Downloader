@@ -52,3 +52,22 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
+
+// ... (dependencies 块之后) ...
+
+afterEvaluate {
+    publishing {
+        publications {
+            // 创建一个名为 "release" 的发布变体
+            create<MavenPublication>("release") {
+                // from(components.getByName("release")) 会自动包含 release 构建类型的所有输出
+                from(components.getByName("release"))
+
+                // 定义 Maven 仓库中的坐标信息
+                groupId = "com.github.dhs964057117" // 你的 GitHub 用户名
+                artifactId = "Titan-Downloader"       // 你的仓库名称
+                version = "1.0.0-beta01"          // 你的版本号
+            }
+        }
+    }
+}
