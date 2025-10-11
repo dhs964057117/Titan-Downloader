@@ -18,7 +18,7 @@ interface DownloadRepository {
     fun getAllFlow(): Flow<List<DownloadTaskEntity>>
     suspend fun insert(vararg task: DownloadTaskEntity): List<Long>
     suspend fun update(task: DownloadTaskEntity)
-    suspend fun deleteById(id: Long)
+    suspend fun deleteById(vararg id: Long)
     suspend fun getById(id: Long): DownloadTaskEntity?
     suspend fun getStatusById(id: Long): DownloadStatus?
     fun getAllTasksFlow(): Flow<List<DownloadTaskEntity>>
@@ -55,7 +55,7 @@ interface DownloadRepository {
 class DownloadRepositoryImpl(private val dao: DownloadDao) : DownloadRepository {
     override suspend fun insert(vararg task: DownloadTaskEntity) = dao.insert(*task)
     override suspend fun update(task: DownloadTaskEntity) = dao.update(task)
-    override suspend fun deleteById(id: Long) = dao.deleteById(id)
+    override suspend fun deleteById(vararg id: Long) = dao.deleteById(*id)
     override suspend fun getById(id: Long): DownloadTaskEntity? = dao.getById(id)
     override suspend fun getStatusById(id: Long): DownloadStatus? = dao.getStatusById(id)
     override fun getByIdFlow(id: Long): Flow<DownloadTaskEntity?> = dao.getByIdFlow(id)

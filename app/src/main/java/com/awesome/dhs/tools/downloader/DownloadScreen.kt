@@ -22,15 +22,13 @@ import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.model.DownloadStatus
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+
 /**
  * FileName: DownloadScreen
  * Author: haosen
  * Date: 10/3/2025 7:55 AM
  * Description:
  **/
-
-
-import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -102,7 +100,8 @@ fun DownloadScreen(viewModel: DownloadViewModel) {
                     },
                     onPause = { viewModel.pauseDownload(task.id) },
                     onResume = { viewModel.resumeDownload(task.id) },
-                    onCancel = { viewModel.cancelDownload(task.id) }
+                    onCancel = { viewModel.cancelDownload(task.id) },
+                    onDelete = { viewModel.deleteDownload(task.id) }
                 )
             }
         }
@@ -140,7 +139,8 @@ fun DownloadItem(
     onItemLongClick: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -176,7 +176,7 @@ fun DownloadItem(
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 if (!isMultiSelectMode) {
-                    if (task.status == DownloadStatus.RUNNING) {
+                    if (task.status == DownloadStatus.RUNNING || task.status == DownloadStatus.QUEUED) {
                         IconButton(onClick = onPause) {
                             Icon(
                                 painterResource(R.drawable.svg_notification_pause),
@@ -201,6 +201,14 @@ fun DownloadItem(
                     ) {
                         IconButton(onClick = onCancel) {
                             Icon(Icons.Default.Close, contentDescription = "Cancel")
+                        }
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                        }
+                    }
+                    if (task.status == DownloadStatus.CANCELED || task.status == DownloadStatus.COMPLETED) {
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete")
                         }
                     }
                 }

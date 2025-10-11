@@ -19,6 +19,7 @@ interface IDownloader {
     fun pause(vararg ids: Long)
     fun resume(vararg ids: Long)
     fun cancel(vararg ids: Long)
+    fun delete(vararg ids: Long, deleteFile: Boolean = true)
     fun getTask(id: Long): Flow<DownloadTaskEntity?>
     fun getTaskByUid(uid: String): Flow<DownloadTaskEntity?>
     fun getAllTasks(): Flow<List<DownloadTaskEntity>>

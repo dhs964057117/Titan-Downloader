@@ -78,11 +78,9 @@ internal object FileNameResolver {
     @Throws(IOException::class)
     private suspend fun findAndReserveAvailableFileName(directory: String, fileName: String): String = withContext(Dispatchers.IO) {
         val targetDir = File(directory)
-        if (!targetDir.exists()) {
-            // Attempt to create the directory. If it fails, we cannot proceed.
-            if (!targetDir.mkdirs()) {
-                throw IOException("Failed to create target directory: ${targetDir.absolutePath}")
-            }
+        // Attempt to create the directory. If it fails, we cannot proceed.
+        if (!targetDir.exists() && !targetDir.mkdirs()) {
+            throw IOException("Failed to create target directory: ${targetDir.absolutePath}")
         }
 
         val originalFile = File(targetDir, fileName)
@@ -94,6 +92,7 @@ internal object FileNameResolver {
                 return@withContext fileName // Success, return the original name
             } catch (e: IOException) {
                 // If creation fails (e.g., permission issue), we'll fall through to generate a new name.
+                throw e
             }
         }
 
@@ -116,6 +115,7 @@ internal object FileNameResolver {
                     return@withContext newFileName // Found an available name and reserved it.
                 } catch (e: IOException) {
                     // Failed to create this placeholder, the loop will try the next number.
+                    throw e
                 }
             }
         }

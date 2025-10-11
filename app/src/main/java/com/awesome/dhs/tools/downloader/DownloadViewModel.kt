@@ -1,9 +1,6 @@
 package com.awesome.dhs.tools.downloader
 
-import android.annotation.SuppressLint
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
@@ -81,6 +78,7 @@ class DownloadViewModel : ViewModel() {
     fun pauseDownload(id: Long) = Downloader.pause(id)
     fun resumeDownload(id: Long) = Downloader.resume(id)
     fun cancelDownload(id: Long) = Downloader.cancel(id)
+    fun deleteDownload(id: Long) = Downloader.delete(id)
 
     // 1. 创建一个 Listener 实例
     private val downloadListener = object : DownloadListener {

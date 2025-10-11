@@ -1,12 +1,12 @@
 # Titan Downloader
 
-**English** | [**中文**](https://github.com/dhs964057117/Titan-Downloader/blob/main/README.md)
+**English** | [**中文**](https://github.com/dhs964057117/Titan-Downloader/blob/main/README-zh.md)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)](https://www.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-blueviolet.svg)](https://kotlinlang.org)
 
-[![Release](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)] (https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)
+[![Release](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)
 
 A high-performance, robust, and non-invasive download framework for the Android platform. Inspired by the design philosophy of OkHttp's Dispatcher, it is architected for high concurrency, efficiency, and excellent scalability.
 
@@ -34,7 +34,7 @@ A high-performance, robust, and non-invasive download framework for the Android 
 
 Add the library to your module's `build.gradle.kts` (or `build.gradle`) file.
 
-[![Release](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)] (https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)
+[![Release](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)
 
 ```groovy
 // Placeholder dependency

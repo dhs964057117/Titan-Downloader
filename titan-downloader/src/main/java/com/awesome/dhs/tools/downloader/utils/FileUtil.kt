@@ -38,6 +38,11 @@ object FileUtil {
         fileName: String,
         mimeType: String? = null
     ): String = withContext(Dispatchers.IO) {
+        // 在移动之前，先找到并删除对应的隐藏占位文件
+        val placeholderFile = File(File(finalPath).parent, fileName)
+        if (placeholderFile.exists()) {
+            placeholderFile.delete()
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Android 10+ -> Use MediaStore API
             copyToPublicDownloads(context, sourceFile, fileName, mimeType)

@@ -41,8 +41,8 @@ interface DownloadDao {
     @Query("SELECT status FROM download_tasks WHERE id = :id")
     suspend fun getStatusById(id: Long): DownloadStatus?
 
-    @Query("DELETE FROM download_tasks WHERE id = :id")
-    suspend fun deleteById(id: Long)
+    @Query("DELETE FROM download_tasks WHERE id IN (:id)")
+    suspend fun deleteById(vararg id: Long)
 
     @Query("UPDATE download_tasks SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: Long, status: DownloadStatus)

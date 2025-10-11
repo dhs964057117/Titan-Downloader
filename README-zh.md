@@ -1,11 +1,11 @@
 # 泰坦下载器 (Titan Downloader)
 
-[**English**](https://github.com/dhs964057117/Titan-Downloader/blob/main/README-EN.md) | **中文**
+[**English**](https://github.com/dhs964057117/Titan-Downloader/blob/main/README.md) | **中文**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)](https://www.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-blueviolet.svg)](https://kotlinlang.org)
-[![Release](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)] (https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)
+[![Release](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)
 一个为 Android 平台设计的高性能、高可用、无侵入的下载框架。其设计思想受 OkHttp Dispatcher
 启发，为高并发、高效率和出色的扩展性而构建。
 
@@ -35,7 +35,7 @@
 ### 1. 添加依赖
 
 将此库添加到您模块的 `build.gradle.kts` (或 `build.gradle`) 文件中。
-[![Release](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)] (https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)
+[![Release](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)](https://jitpack.io/v/dhs964057117/Titan-Downloader.svg)
 ```groovy
 // Placeholder dependency
 implementation 'com.github.dhs964057117:Titan-Downloader:1.0.0-beta01'

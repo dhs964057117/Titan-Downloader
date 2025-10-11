@@ -125,6 +125,7 @@ internal class DownloadDispatcher(
             }
         }
         emitCurrentState()
+        promoteAndExecute()
     }
 
     fun resume(ids: List<Long>) = scope.launch {
@@ -164,8 +165,32 @@ internal class DownloadDispatcher(
             }
         }
         emitCurrentState()
+        promoteAndExecute()
     }
 
+    fun delete(ids: List<Long>, deleteFile: Boolean) = scope.launch {
+        val tasksToCancel = mutableListOf<DownloadTaskEntity>()
+        ids.forEach { id ->
+            readyTasks.find { it.id == id }?.also { readyTasks.remove(it); tasksToCancel.add(it) }
+            runningTasks.remove(id)?.also { tasksToCancel.add(it) }
+            pausedTasks.remove(id)?.also { tasksToCancel.add(it) }
+        }
+
+        if (tasksToCancel.isNotEmpty()) {
+            tasksToCancel.forEach { task ->
+                workManager.cancelAllWorkByTag(task.id.toString())
+                try {
+                    cleanupTaskFiles(task)
+                    if (deleteFile) File(task.filePath).delete()
+                } catch (e: Exception) {
+                    DownloaderManager.config.logger.d(TAG, "$e")
+                }
+            }
+        }
+        repository.deleteById(*ids.toLongArray())
+        emitCurrentState()
+        promoteAndExecute()
+    }
 
     // --- Core Scheduling Logic ---
 
