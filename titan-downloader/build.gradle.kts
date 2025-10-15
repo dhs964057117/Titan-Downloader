@@ -36,6 +36,11 @@ android {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {

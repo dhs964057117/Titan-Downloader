@@ -1,4 +1,3 @@
-import android.databinding.tool.ext.javaFile
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
@@ -21,21 +20,24 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-//    signingConfigs {
-//        create("release") {
-//            val properties = Properties()
-//            val localPropertiesFile = rootProject.file("local.properties")
-//            if (localPropertiesFile.exists()) {
-//                properties.load(localPropertiesFile.inputStream())
-//            }
-//
-//            storeFile = file(properties.getProperty("RELEASE_STORE_FILE", ""))
-//            storePassword = properties.getProperty("RELEASE_STORE_PASSWORD", "")
-//            keyAlias = properties.getProperty("RELEASE_KEY_ALIAS", "")
-//            keyPassword = properties.getProperty("RELEASE_KEY_PASSWORD", "")
-//
-//        }
-//    }
+    signingConfigs {
+        create("release") {
+            val properties = Properties()
+            val localPropertiesFile = rootProject.file("gradle.properties")
+            if (localPropertiesFile.exists()) {
+                properties.load(localPropertiesFile.inputStream())
+            }
+            if (properties.getProperty("RELEASE_STORE_FILE", "").isNullOrEmpty()) {
+                return@create
+            }
+
+            storeFile = file(properties.getProperty("RELEASE_STORE_FILE", ""))
+            storePassword = properties.getProperty("RELEASE_STORE_PASSWORD", "")
+            keyAlias = properties.getProperty("RELEASE_KEY_ALIAS", "")
+            keyPassword = properties.getProperty("RELEASE_KEY_PASSWORD", "")
+
+        }
+    }
     buildTypes {
         debug {
             isMinifyEnabled = false
@@ -52,7 +54,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-//            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -66,6 +68,25 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+
+    applicationVariants.all {
+        val variant = this
+        variant.assembleProvider.get().doLast {
+            variant.outputs.forEach { output ->
+                val apkFile = output.outputFile
+                val destDir = project.rootDir.resolve(variant.buildType.name)
+                val newName =
+                    "${rootProject.name}-${variant.versionName}-${variant.buildType.name}.apk"
+
+                copy {
+                    from(apkFile)
+                    into(destDir)
+                    rename { newName }
+                }
+                println("Copied and renamed ${apkFile.name} to ${destDir.resolve(newName)}")
+            }
+        }
     }
 }
 
