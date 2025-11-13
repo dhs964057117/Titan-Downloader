@@ -13,6 +13,7 @@ import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.interfac.IDownloadStrategy
 import com.awesome.dhs.tools.downloader.model.DownloadState
 import com.awesome.dhs.tools.downloader.model.DownloadStatus
+import com.awesome.dhs.tools.downloader.utils.FileNameResolver.getMimeType
 import com.awesome.dhs.tools.downloader.utils.FileUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -34,7 +35,7 @@ class HttpDownloadStrategy : IDownloadStrategy {
     override fun download(
         task: DownloadTaskEntity,
         client: OkHttpClient,
-        stateChecker: suspend () -> DownloadStatus?
+        stateChecker: suspend () -> DownloadStatus?,
     ): Flow<DownloadState> = flow {
         val tempFile = File(task.tempFilePath)
         val downloadedBytes = if (tempFile.exists()) tempFile.length() else 0L
@@ -63,7 +64,7 @@ class HttpDownloadStrategy : IDownloadStrategy {
             response.header("Content-Length")?.toLongOrNull()?.let { it + downloadedBytes }
                 ?: (task.totalBytes.takeIf { it > 0 } ?: -1L)
 
-        val mimeType = response.header("Content-Type")
+        val mimeType = task.fileName.getMimeType() ?: response.header("Content-Type")
         if (totalBytes == -1L && downloadedBytes == 0L) {
             emit(DownloadState.Error("Could not determine file size."))
             return@flow

@@ -41,42 +41,46 @@ internal object FileNameResolver {
     suspend fun resolve(
         request: DownloadRequest,
         globalFinalDir: String,
-        client: OkHttpClient
-    ): ResolvedPath = mutex.withLock { // Use a mutex to ensure atomicity and prevent race conditions
+        client: OkHttpClient,
+    ): ResolvedPath =
+        mutex.withLock { // Use a mutex to ensure atomicity and prevent race conditions
 
-        val parentDir: String
-        val rawName: String
+            val parentDir: String
+            val rawName: String
 
-        // Priority 1: A full file path is provided in the request.
-        if (!request.filePath.isNullOrBlank()) {
-            val userFile = File(request.filePath)
-            // Use the parent directory from the provided path, or fallback to the global directory.
-            parentDir = userFile.parent ?: globalFinalDir
-            rawName = userFile.name
-        } else {
-            // Priority 2: No override path, so we auto-generate the filename.
-            parentDir = globalFinalDir
-            rawName = getRawFileName(request, client)
+            // Priority 1: A full file path is provided in the request.
+            if (!request.filePath.isNullOrBlank()) {
+                val userFile = File(request.filePath)
+                // Use the parent directory from the provided path, or fallback to the global directory.
+                parentDir = userFile.parent ?: globalFinalDir
+                rawName = userFile.name
+            } else {
+                // Priority 2: No override path, so we auto-generate the filename.
+                parentDir = globalFinalDir
+                rawName = getRawFileName(request, client)
+            }
+
+            // Clean up the raw name (remove illegal chars, etc.).
+            val sanitizedName = sanitize(rawName)
+
+            // Check for collisions on the filesystem and create a placeholder to reserve the name.
+            val availableName = findAndReserveAvailableFileName(parentDir, sanitizedName)
+
+            // Construct the final, absolute path with the unique name.
+            val finalPath = File(parentDir, availableName).absolutePath
+
+            return@withLock ResolvedPath(finalPath = finalPath, fileName = availableName)
         }
-
-        // Clean up the raw name (remove illegal chars, etc.).
-        val sanitizedName = sanitize(rawName)
-
-        // Check for collisions on the filesystem and create a placeholder to reserve the name.
-        val availableName = findAndReserveAvailableFileName(parentDir, sanitizedName)
-
-        // Construct the final, absolute path with the unique name.
-        val finalPath = File(parentDir, availableName).absolutePath
-
-        return@withLock ResolvedPath(finalPath = finalPath, fileName = availableName)
-    }
 
     /**
      * Checks for an available filename, and upon finding one,
      * immediately creates a 0-byte placeholder file to reserve it.
      */
     @Throws(IOException::class)
-    private suspend fun findAndReserveAvailableFileName(directory: String, fileName: String): String = withContext(Dispatchers.IO) {
+    private suspend fun findAndReserveAvailableFileName(
+        directory: String,
+        fileName: String,
+    ): String = withContext(Dispatchers.IO) {
         val targetDir = File(directory)
         // Attempt to create the directory. If it fails, we cannot proceed.
         if (!targetDir.exists() && !targetDir.mkdirs()) {
@@ -132,13 +136,15 @@ internal object FileNameResolver {
             return request.fileName
         }
         // 2. 从 Content-Disposition
-        val fileNameFromHeader = parseContentDisposition(fetchHeaders(request.url, request.headers, client))
+        val fileNameFromHeader =
+            parseContentDisposition(fetchHeaders(request.url, request.headers, client))
         if (fileNameFromHeader != null) return fileNameFromHeader
         // 3. 从 URL Path
         val fileNameFromUrl = parseUrlPath(request.url)
         if (isFileNameReasonable(fileNameFromUrl)) return fileNameFromUrl!!
         // 4. 从 MimeType
-        val fileNameFromMime = generateNameFromMimeType(fetchHeaders(request.url, request.headers, client))
+        val fileNameFromMime =
+            generateNameFromMimeType(fetchHeaders(request.url, request.headers, client))
         if (fileNameFromMime != null) return fileNameFromMime
         // 5. 时间戳
         return "${System.currentTimeMillis()}.bin"
@@ -162,7 +168,9 @@ internal object FileNameResolver {
             val truncatedName = nameWithoutExtension.take(availableLengthForName)
 
             sanitizedName = if (extension.isNotEmpty()) {
-                if (truncatedName.isNotEmpty()) "$truncatedName.$extension" else extension.take(MAX_FILENAME_LENGTH)
+                if (truncatedName.isNotEmpty()) "$truncatedName.$extension" else extension.take(
+                    MAX_FILENAME_LENGTH
+                )
             } else {
                 truncatedName
             }
@@ -173,7 +181,7 @@ internal object FileNameResolver {
     private fun isFileNameReasonable(fileName: String?): Boolean {
         if (fileName.isNullOrBlank()) return false
         //  heuristics: a "reasonable" filename is not excessively long and has an extension.
-        return fileName.length < MAX_FILENAME_LENGTH  && fileName.contains('.')
+        return fileName.length < MAX_FILENAME_LENGTH && fileName.contains('.')
     }
 
     private fun parseUrlPath(url: String): String? {
@@ -197,7 +205,11 @@ internal object FileNameResolver {
         }
     }
 
-    private suspend fun fetchHeaders(url: String, headers: Map<String, String>, client: OkHttpClient): Response? = withContext(Dispatchers.IO) {
+    private suspend fun fetchHeaders(
+        url: String,
+        headers: Map<String, String>,
+        client: OkHttpClient,
+    ): Response? = withContext(Dispatchers.IO) {
         try {
             val finalHeaders = headers.toMutableMap()
             finalHeaders.putIfAbsent("User-Agent", "Mozilla/5.0")
@@ -224,5 +236,18 @@ internal object FileNameResolver {
         } catch (e: Exception) {
             null
         }
+    }
+
+    fun String?.getFileExtension(): String? {
+        if (this == null) return null
+        val extension = substringAfterLast('.', missingDelimiterValue = "")
+        return if (extension.isNotEmpty() && extension != this) extension else null
+    }
+
+    fun String?.getMimeType(): String? {
+        val extension = getFileExtension()
+        val systemMimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+        // 如果系统没有找到，使用我们的备用映射
+        return systemMimeType
     }
 }
