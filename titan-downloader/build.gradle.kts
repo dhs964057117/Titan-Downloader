@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     id("com.google.devtools.ksp")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("maven-publish")
 }
 
@@ -48,6 +49,10 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.room.paging)
+    implementation(libs.androidx.paging.common)
+    implementation(libs.androidx.documentfile)
+    implementation(libs.kotlinx.serialization.json)
     ksp(libs.androidx.room.compiler)
     implementation(libs.work.runtime.ktx)
     implementation(libs.gson)
@@ -71,7 +76,7 @@ afterEvaluate {
                 // 定义 Maven 仓库中的坐标信息
                 groupId = "com.github.dhs964057117" // 你的 GitHub 用户名
                 artifactId = "Titan-Downloader"       // 你的仓库名称
-                version = "1.0.0-beta01"          // 你的版本号
+                version = "1.0.0-beta02"          // 你的版本号
             }
         }
     }

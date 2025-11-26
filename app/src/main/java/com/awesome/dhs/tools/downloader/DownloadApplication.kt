@@ -1,7 +1,9 @@
 package com.awesome.dhs.tools.downloader
 
 import android.app.Application
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Environment
 import android.util.Log
 import com.awesome.dhs.tools.downloader.interfac.ILogger
@@ -25,6 +27,7 @@ class DownloadApplication : Application() {
         // 使用 Builder 创建配置
         val downloaderConfig = DownloaderConfig.Builder(this)
             .setFinalDirectory(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath)
+            .setNotificationClickIntent(createActionIntent())
             .setMaxConcurrentDownloads(5)
 //            .setHttpClient()
             .setLogger(TimberLogger()) // 使用我们自己实现的 Logger
@@ -34,6 +37,15 @@ class DownloadApplication : Application() {
         DownloaderManager.initialize(this, downloaderConfig)
     }
 
+    private fun createActionIntent(): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java)
+        return PendingIntent.getActivity(
+            context,
+            10000,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
 }
 
 class TimberLogger : ILogger {

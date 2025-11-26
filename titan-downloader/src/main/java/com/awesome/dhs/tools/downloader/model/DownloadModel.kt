@@ -1,31 +1,6 @@
-package com.awesome.dhs.tools.downloader.db
+package com.awesome.dhs.tools.downloader.model
 
-import androidx.room.Entity
-import androidx.room.Index
-import androidx.room.PrimaryKey
-import com.awesome.dhs.tools.downloader.model.DownloadStatus
-import com.awesome.dhs.tools.downloader.model.DownloadTypes
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-
-
-/**
- * FileName: DownloadTaskEntity
- * Author: haosen
- * Date: 10/3/2025 4:00 AM
- * Description:
- **/
-@Entity(
-    tableName = "download_tasks",
-    indices = [
-        Index(value = ["status"]),
-        Index(value = ["uid"], unique = true, name = "idx_uid")
-    ]
-)
-@Serializable
-data class DownloadTaskEntity(
-    @PrimaryKey(autoGenerate = true)
+data class DownloadModel(
     val id: Long = 0, // 自增长 Long 类型主键
     // --- 核心下载信息 ---
     val url: String,
@@ -55,8 +30,3 @@ data class DownloadTaskEntity(
     val headers: Map<String, String> = emptyMap(),
     val tag: String? = null, // 用于对任务进行分组
 )
-
-internal fun DownloadTaskEntity.toJson(): String = Json.encodeToString(this)
-
-internal fun jsonToDownloadTaskEntity(json: String): DownloadTaskEntity =
-    Json.decodeFromString(json)

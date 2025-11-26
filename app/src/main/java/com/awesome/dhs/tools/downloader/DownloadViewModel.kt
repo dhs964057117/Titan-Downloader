@@ -40,13 +40,13 @@ class DownloadViewModel : ViewModel() {
 
     // 一些用于测试的示例文件 URL
     private val sampleUrls = listOf(
-        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
-        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
-        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
-        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
-        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
-        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
-        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4"
+        "http://ipv4.download.thinkbroadband.com/5MB.zip",
+        "http://ipv4.download.thinkbroadband.com/5MB.zip",
+//        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
+//        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
+//        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
+//        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
+//        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4"
     )
 
     fun addSingleDownload() {

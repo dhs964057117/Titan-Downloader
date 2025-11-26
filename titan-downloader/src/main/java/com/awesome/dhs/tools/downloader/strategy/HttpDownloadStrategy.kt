@@ -7,18 +7,15 @@ package com.awesome.dhs.tools.downloader.strategy
  * Date: 10/3/2025 4:44 AM
  * Description:
  **/
-import com.awesome.dhs.tools.downloader.DownloaderManager
-import com.awesome.dhs.tools.downloader.core.DownloadDispatcher.Companion.TAG
 import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.interfac.IDownloadStrategy
 import com.awesome.dhs.tools.downloader.model.DownloadState
-import com.awesome.dhs.tools.downloader.model.DownloadStatus
-import com.awesome.dhs.tools.downloader.utils.FileNameResolver.getMimeType
-import com.awesome.dhs.tools.downloader.utils.FileUtil
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.isActive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -26,7 +23,7 @@ import java.io.IOException
 import java.io.RandomAccessFile
 import kotlin.coroutines.cancellation.CancellationException
 
-class HttpDownloadStrategy : IDownloadStrategy {
+internal class HttpDownloadStrategy : IDownloadStrategy {
     companion object {
         // How often to update progress and speed, in milliseconds.
         private const val PROGRESS_UPDATE_INTERVAL = 1000L
@@ -35,8 +32,7 @@ class HttpDownloadStrategy : IDownloadStrategy {
     override fun download(
         task: DownloadTaskEntity,
         client: OkHttpClient,
-        stateChecker: suspend () -> DownloadStatus?,
-    ): Flow<DownloadState> = flow {
+    ) = flow {
         val tempFile = File(task.tempFilePath)
         val downloadedBytes = if (tempFile.exists()) tempFile.length() else 0L
 
@@ -50,22 +46,29 @@ class HttpDownloadStrategy : IDownloadStrategy {
         val response = try {
             client.newCall(request).execute()
         } catch (e: IOException) {
+            if (!currentCoroutineContext().isActive) {
+                throw CancellationException("Coroutine cancelled during network request")
+            }
             emit(DownloadState.Error("Network error: ${e.message}", e))
             return@flow
         }
 
-        if (!response.isSuccessful && response.code != 206) { // 206 Partial Content
+        // 200 (OK) 或 206 (Partial Content)
+        if (!response.isSuccessful && response.code != 206) {
+            response.close()
             emit(DownloadState.Error("Unexpected response code: ${response.code}"))
             return@flow
         }
 
         // 2. 获取文件总大小
         val totalBytes =
-            response.header("Content-Length")?.toLongOrNull()?.let { it + downloadedBytes }
-                ?: (task.totalBytes.takeIf { it > 0 } ?: -1L)
+            response.header("Content-Length")?.toLongOrNull()?.let {
+                if (response.code == 206) it + downloadedBytes else it
+            } ?: (task.totalBytes.takeIf { it > 0 } ?: -1L)
 
-        val mimeType = task.fileName.getMimeType() ?: response.header("Content-Type")
-        if (totalBytes == -1L && downloadedBytes == 0L) {
+
+        if (totalBytes == -1L) {
+            response.close()
             emit(DownloadState.Error("Could not determine file size."))
             return@flow
         }
@@ -88,6 +91,7 @@ class HttpDownloadStrategy : IDownloadStrategy {
                 val buffer = ByteArray(8 * 1024)
                 var bytesRead: Int
                 while (input?.read(buffer).also { bytesRead = it ?: -1 } != -1) {
+                    currentCoroutineContext().ensureActive()
                     output.write(buffer, 0, bytesRead)
                     currentBytes += bytesRead
                     val currentTime = System.currentTimeMillis()
@@ -106,40 +110,12 @@ class HttpDownloadStrategy : IDownloadStrategy {
                         lastProgressUpdateTime = currentTime
                         lastDownloadedBytesForSpeed = currentBytes
                     }
-                    // [NEW] 从外部获取当前任务状态
-                    val currentStatus = stateChecker.invoke()
-
-                    if (currentStatus == DownloadStatus.PAUSED) {
-                        // 感知到暂停指令，优雅地退出
-                        emit(DownloadState.Paused) // 定义一个新的 Paused 状态
-                        return@flow
-                    }
-                    if (currentStatus == DownloadStatus.CANCELED) {
-                        // 感知到取消指令，抛出异常以终止流程
-                        throw CancellationException("Task was cancelled by user.")
-                    }
                 }
             }
         }
 
-        try {
-            val finalAbsolutePath = FileUtil.moveToPublicDirectory(
-                context = DownloaderManager.context!!,
-                sourceFile = tempFile,
-                finalPath = task.filePath,
-                fileName = task.fileName,
-                mimeType = mimeType
-            )
-            emit(DownloadState.Success)
-            DownloaderManager.config.logger.d(TAG, "finalAbsolutePath:$finalAbsolutePath")
-        } catch (e: Exception) {
-            emit(
-                DownloadState.Error(
-                    "Failed to move temp file to final destination: ${e.message}",
-                    e
-                )
-            )
-        }
+        // 下载循环正常结束
+        emit(DownloadState.Success)
 
     }.flowOn(Dispatchers.IO) // 确保所有 IO 操作都在 IO 线程
 
