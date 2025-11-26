@@ -21,5 +21,5 @@ sealed class DownloadState {
     /** Indicates the download has failed. */
     data class Error(val message: String, val cause: Throwable? = null) : DownloadState()
 
-    data object Paused : DownloadState()
+//    data object Paused : DownloadState()
 }

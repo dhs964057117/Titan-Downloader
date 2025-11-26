@@ -18,14 +18,12 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.ForegroundInfo
 import com.awesome.dhs.tools.downloader.DownloaderManager
 import com.awesome.dhs.tools.downloader.R
-import com.awesome.dhs.tools.downloader.core.DownloadDispatcher.Companion.TAG
 import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.model.DownloadStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.io.IOException
 
 /**
  * FileName: AppDatabase
@@ -35,11 +33,18 @@ import java.io.IOException
  **/
 class NotificationController(
     private val context: Context,
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val notificationClickIntent: PendingIntent? = null,
 ) {
     companion object {
         private const val CHANNEL_ID = "downloader_channel"
         private const val CHANNEL_NAME = "Downloads"
+        private const val TAG = "NotificationController"
+
+        const val PAUSE_NOTIFICATION_ID_OFFSET = 100000
+
+        // 用于终端通知的 ID 偏移量
+        const val TERMINAL_NOTIFICATION_ID_OFFSET = 1000000
     }
 
     init {
@@ -62,15 +67,18 @@ class NotificationController(
         }
     }
 
+    /**
+     * 设为 suspend 函数以异步获取封面
+     */
     suspend fun buildNotification(
         task: DownloadTaskEntity,
-        speedBps: Long
+        clickIntent: PendingIntent? = notificationClickIntent,
     ): NotificationCompat.Builder {
-        val title = task.fileName
+        val title = task.fileName.ifBlank { "Downloading..." }
         val statusText = getStatusText(task.status)
         val progress = task.progress
         val speedText =
-            if (task.status == DownloadStatus.RUNNING) " - ${formatSpeed(speedBps)}" else ""
+            if (task.status == DownloadStatus.RUNNING) " - ${formatSpeed(task.speedBps)}" else ""
         val contentText = "$statusText$speedText"
 
         // 异步获取封面
@@ -79,11 +87,13 @@ class NotificationController(
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(contentText)
-            .setSmallIcon(R.drawable.svg_notification_download) // 你需要准备一个下载图标
+            .setSmallIcon(R.drawable.svg_notification_download)
             .setLargeIcon(largeIcon)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setOngoing(true) // 让通知不可被用户轻易划掉
-            .setProgress(100, progress, false)
+            .setOngoing(task.status == DownloadStatus.RUNNING || task.status == DownloadStatus.PAUSED) // 仅在活动时
+            .setProgress(100, progress, progress == 0) // 进度为0时显示不确定
+            .setOnlyAlertOnce(true) // 避免重复提醒
+            .setContentIntent(clickIntent) // 设置点击意图
 
         // 根据状态添加不同的操作按钮
         when (task.status) {
@@ -110,6 +120,7 @@ class NotificationController(
             }
 
             else -> { /* For QUEUED, COMPLETED, etc., no actions needed for now */
+                builder.setProgress(100, 0, true) // 显示不确定进度条
             }
         }
         return builder
@@ -145,11 +156,12 @@ class NotificationController(
             putExtra(DownloadNotificationReceiver.EXTRA_TASK_ID, taskId)
         }
         // 使用 taskId 作为 requestCode 确保每个任务的 PendingIntent 是唯一的
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         return PendingIntent.getBroadcast(
             context,
-            (action.hashCode() + taskId).toInt(),
+            (action.hashCode() + taskId).toInt(), // 确保每个按钮的 requestCode 唯一
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            flags
         )
     }
 
@@ -165,8 +177,8 @@ class NotificationController(
             } else {
                 null
             }
-        } catch (e: IOException) {
-            DownloaderManager.config.logger.d(TAG, "$e")
+        } catch (e: Exception) { // 捕获所有异常
+            DownloaderManager.getInstance().config.logger.d(TAG, "$e")
             null
         }
     }
@@ -178,6 +190,8 @@ class NotificationController(
         DownloadStatus.COMPLETED -> "Completed"
         DownloadStatus.FAILED -> "Failed"
         DownloadStatus.CANCELED -> "Canceled"
+        DownloadStatus.READY -> "READY"
+        DownloadStatus.PREPARING -> "PREPARING"
     }
 
     private fun formatSpeed(bytesPerSecond: Long): String {
@@ -190,7 +204,7 @@ class NotificationController(
 
     fun createForegroundInfo(
         notificationId: Int,
-        notification: Notification
+        notification: Notification,
     ): ForegroundInfo {
         // On modern Android, you must specify the foreground service type.
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -203,5 +217,44 @@ class NotificationController(
             // For older versions, the type is not needed.
             ForegroundInfo(notificationId, notification)
         }
+    }
+
+    /**
+     * 构建一个（完成/失败）通知。
+     * 这是一个同步函数，因为它不需要封面。
+     */
+    fun buildTerminalNotification(
+        task: DownloadTaskEntity,
+        clickIntent: PendingIntent?,
+    ): NotificationCompat.Builder {
+        val (title, text, icon) = when (task.status) {
+            DownloadStatus.COMPLETED -> Triple(
+                task.fileName,
+                "Download completed", // 你可以在 strings.xml 中定义
+                R.drawable.notification_download_complete // 你需要准备一个“完成”图标
+            )
+
+            DownloadStatus.FAILED -> Triple(
+                task.fileName,
+                task.error ?: "Download failed", // 你可以在 strings.xml 中定义
+                R.drawable.notification_download_fail // 你需要准备一个“失败”图标
+            )
+
+            else -> Triple(
+                task.fileName,
+                "Download status: ${task.status}",
+                R.drawable.svg_notification_download
+            )
+        }
+
+        return NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setSmallIcon(icon)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // 使用默认优先级以提醒用户
+            .setOngoing(false) // [更改] 非持续性
+            .setAutoCancel(true) // [新增] 点击后自动消失
+            .setProgress(0, 0, false) // [更改] 移除进度条
+            .setContentIntent(clickIntent) // 设置点击意图
     }
 }

@@ -1,27 +1,63 @@
 package com.awesome.dhs.tools.downloader
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.webkit.MimeTypeMap
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.model.DownloadStatus
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import java.util.Locale
 
 /**
  * FileName: DownloadScreen
@@ -45,16 +81,23 @@ fun DownloadScreen(viewModel: DownloadViewModel) {
     }
 
     val permissionStates = rememberMultiplePermissionsState(permissions = permissionsToRequest)
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
         if (!permissionStates.allPermissionsGranted) {
             permissionStates.launchMultiplePermissionRequest()
         }
     }
+    LaunchedEffect(Unit) {
+        val uri = FolderSelectionManager.getSavedFolder(context = context)?.uri
+        val finalFolder = uri?.toString() ?: Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        ).absolutePath
+        Downloader.updateConfig { config -> config.copy(finalDirectory = finalFolder) }
+    }
 
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     val isMultiSelectMode by viewModel.isMultiSelectMode.collectAsStateWithLifecycle()
     val selectedTaskIds by viewModel.selectedTaskIds.collectAsStateWithLifecycle()
-
     Scaffold(
         topBar = {
             // 根据是否处于多选模式，显示不同的 TopAppBar
@@ -66,8 +109,6 @@ fun DownloadScreen(viewModel: DownloadViewModel) {
                     onResume = { viewModel.performBatchResume() },
                     onCancel = { viewModel.performBatchCancel() }
                 )
-            } else {
-                TopAppBar(title = { Text("Download Manager Demo") })
             }
         },
         bottomBar = {
@@ -81,7 +122,7 @@ fun DownloadScreen(viewModel: DownloadViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(tasks, key = { it.id }) { task ->
@@ -92,6 +133,10 @@ fun DownloadScreen(viewModel: DownloadViewModel) {
                     onItemClick = {
                         if (isMultiSelectMode) {
                             viewModel.toggleSelection(task.id)
+                        } else {
+                            if (task.status == DownloadStatus.COMPLETED) {
+                                FileOpenerUtil.openFile(context, task.filePath)
+                            }
                         }
                     },
                     onItemLongClick = {
@@ -140,7 +185,7 @@ fun DownloadItem(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onCancel: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -151,31 +196,43 @@ fun DownloadItem(
             onLongClick = onItemLongClick
         )
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
             Text(
                 task.fileName,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(4.dp))
-            Text("Status: ${task.status.name}", fontSize = 12.sp)
-            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Status: ${task.status.name}", fontSize = 12.sp)
+                if (task.status == DownloadStatus.RUNNING) {
+                    Text(
+                        "${formatBytes(task.speedBps)}/S",
+                        fontSize = 12.sp,
+                    )
+                }
+            }
 
-            if (task.status == DownloadStatus.RUNNING || task.status == DownloadStatus.COMPLETED) {
+            if (task.status == DownloadStatus.RUNNING || task.status == DownloadStatus.COMPLETED || task.status == DownloadStatus.PAUSED) {
                 LinearProgressIndicator(
-                    progress = if (task.totalBytes > 0) task.progress / 100f else 0f,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "${formatBytes(task.downloadedBytes)} / ${formatBytes(task.totalBytes)}",
-                    fontSize = 12.sp,
-                    modifier = Modifier.align(Alignment.End)
+                    progress = { if (task.totalBytes > 0) task.progress / 100f else 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = ProgressIndicatorDefaults.linearColor,
+                    trackColor = ProgressIndicatorDefaults.linearTrackColor,
+                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
                 )
             }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (!isMultiSelectMode) {
+                    Text(
+                        "${formatBytes(task.downloadedBytes)} / ${formatBytes(task.totalBytes)}",
+                        fontSize = 12.sp,
+                    )
                     if (task.status == DownloadStatus.RUNNING || task.status == DownloadStatus.QUEUED) {
                         IconButton(onClick = onPause) {
                             Icon(
@@ -236,7 +293,7 @@ fun MultiSelectAppBar(
     onClose: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
 ) {
     TopAppBar(
         title = { Text("$selectedCount selected") },
@@ -266,4 +323,38 @@ fun MultiSelectAppBar(
             }
         }
     )
+}
+
+fun openFile(context: Context, path: String) {
+    // 获取文件的 MIME 类型
+    val mimeType = getMimeType(path)
+    // 创建 Intent
+    val intent = Intent(Intent.ACTION_VIEW)
+    // 从 Android 7.0 (API 24) 开始需要使用 FileProvider
+    val fileUri: Uri?
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && path.startsWith("content://", true)) {
+        fileUri = path.toUri()
+    } else {
+        fileUri = path.toUri()
+    }
+
+    intent.setDataAndType(fileUri, mimeType)
+
+
+    // 添加读取权限
+    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+    try {
+        context.startActivity(Intent.createChooser(intent, "选择应用打开文件"))
+    } catch (e: ActivityNotFoundException) {
+        // 没有应用可以处理该文件
+        Toast.makeText(context, "没有找到可以打开此文件的应用", Toast.LENGTH_SHORT).show()
+    }
+}
+
+// 获取 MIME 类型的方法
+fun getMimeType(filePath: String): String? {
+    val extension = filePath.substring(filePath.lastIndexOf(".") + 1)
+    return MimeTypeMap.getSingleton()
+        .getMimeTypeFromExtension(extension.lowercase(Locale.getDefault()))
 }

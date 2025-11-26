@@ -1,28 +1,23 @@
 package com.awesome.dhs.tools.downloader.core
 
 import android.annotation.SuppressLint
+import android.content.Context
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.room.Index
 import androidx.work.WorkManager
-import com.awesome.dhs.tools.downloader.DownloaderManager
-import com.awesome.dhs.tools.downloader.DownloaderManager.Companion.config
 import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.interfac.DownloadListener
 import com.awesome.dhs.tools.downloader.interfac.IDownloader
 import com.awesome.dhs.tools.downloader.model.DownloadRequest
 import com.awesome.dhs.tools.downloader.model.DownloadStatus
 import com.awesome.dhs.tools.downloader.model.DownloaderConfig
-import com.awesome.dhs.tools.downloader.notification.NotificationController
-import com.awesome.dhs.tools.downloader.utils.FileNameResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import java.io.File
-import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -33,9 +28,9 @@ import java.util.concurrent.CopyOnWriteArrayList
  * It is also responsible for creating initial DownloadTaskEntity objects.
  */
 internal class DownloaderImpl(
-    private val repository: DownloadRepository = DownloaderManager.Companion.repository,
-    private val httpClient: OkHttpClient = DownloaderManager.Companion.config.httpClient,
-    workManager: WorkManager = WorkManager.getInstance(DownloaderManager.Companion.context!!)
+    private var config: DownloaderConfig,
+    private val repository: DownloadRepository,
+    workManager: WorkManager,
 ) : IDownloader {
 
     companion object {
@@ -43,9 +38,18 @@ internal class DownloaderImpl(
         @Volatile
         private var instance: DownloaderImpl? = null
 
-        fun getInstance(): DownloaderImpl {
+        private const val TAG = "DownloaderImpl"
+        fun getInstance(
+            context: Context,
+            config: DownloaderConfig,
+            repository: DownloadRepository,
+        ): DownloaderImpl {
             return (instance ?: synchronized(this) {
-                instance ?: DownloaderImpl().also {
+                instance ?: DownloaderImpl(
+                    config,
+                    repository,
+                    WorkManager.getInstance(context),
+                ).also {
                     instance = it
                 }
             })
@@ -54,26 +58,22 @@ internal class DownloaderImpl(
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    // ---  创建 Dispatcher, 它是新的核心 ---
-    val dispatcher: DownloadDispatcher =
-        DownloadDispatcher(DownloaderManager.Companion.config, repository, workManager)
-    val notificationController: NotificationController =
-        NotificationController(DownloaderManager.Companion.context!!, httpClient)
+    // 核心组件 Dispatcher任务调度和通知调度
+    val dispatcher: DownloadDispatcher = DownloadDispatcher(config, repository, workManager)
     private val listeners = CopyOnWriteArrayList<DownloadListener>()
 
-    init {
-        // --- 启动时从数据库恢复 Dispatcher 的内存状态 ---
-        scope.launch {
-            dispatcher.rehydrate()
-            dispatcher.taskUpdateEventFlow.collect { updatedTask ->
-                // 当收到来自 Dispatcher 的更新事件时，通知所有外部监听器
-                notifyListeners(updatedTask)
-            }
-        }
+    /**
+     * 由 DownloaderManager 在初始化时调用。
+     */
+    fun startDispatcher() {
+        dispatcher.start()
+        config.logger.d("DownloaderImpl", "Core services started.")
     }
 
-    override fun updateConfig(config: DownloaderConfig) {
-        dispatcher.updateConfig(config)
+    override fun updateConfig(config:(DownloaderConfig)-> DownloaderConfig) {
+        val originConfig = this.config
+        this.config = config.invoke(originConfig)
+        dispatcher.updateConfig(originConfig)
     }
 
     /**
@@ -104,38 +104,18 @@ internal class DownloaderImpl(
         }
     }
 
-    override suspend fun enqueue(vararg requests: DownloadRequest) {
-        if (requests.isEmpty()) {
-            return
-        }
-        val failTasks = mutableListOf<DownloadTaskEntity>()
-        val successTasksToInsert  = mutableListOf<DownloadTaskEntity>()
-        var tempFile: File? = null
-        // 1. 准备阶段：创建所有 Task 实体
-        for (request in requests) {
-            try {
-                val resolved = FileNameResolver.resolve(
-                    request = request,
-                    globalFinalDir = dispatcher.config.finalDirectory,
-                    client = httpClient
-                )
+    override fun enqueue(vararg requests: DownloadRequest) {
+        if (requests.isEmpty()) return
+        scope.launch {
+            val tasks = requests.map { request ->
                 val time = System.currentTimeMillis()
-
-                val tempDir = File(DownloaderManager.Companion.context!!.cacheDir, "downloads")
-
-                // 2. 确保这个稳定目录存在
-                if (!tempDir.exists()) {
-                    tempDir.mkdirs()
-                }
-
-                // 3. 在这个稳定目录中创建临时文件
-                tempFile = File.createTempFile("download_", ".tmp", tempDir)
-
-                val task = DownloadTaskEntity(
+                DownloadTaskEntity(
                     url = request.url,
-                    filePath = resolved.finalPath,
-                    tempFilePath = tempFile.absolutePath,
-                    fileName = resolved.fileName,
+                    // 文件路径和名称将在 PrepareWorker 中解析
+                    filePath = request.filePath ?: "", // 可能是用户指定的完整路径，也可能只是目录
+                    tempFilePath = "", // 待解析
+                    fileName = request.fileName, // 可能是用户指定的，也可能为空
+                    status = DownloadStatus.QUEUED, // 初始状态为排队中
                     createdTime = time,
                     updateTime = time,
                     uid = request.uid,
@@ -148,76 +128,35 @@ internal class DownloaderImpl(
                     headers = request.headers,
                     tag = request.tag
                 )
-                successTasksToInsert.add(task)
-            } catch (e: IOException) {
-                // --- 捕获异常，创建“失败”任务 ---
-                // 1. 记录详细错误
-                config.logger.e(
-                    "Downloader",
-                    "Failed to resolve/reserve filename for ${request.url}: ${e.message}",
-                    e
-                )
-                tempFile?.delete()
-                val time = System.currentTimeMillis()
-
-                // 2. 创建一个状态为 FAILED 的任务实体
-                val failedTask = DownloadTaskEntity(
-                    url = request.url,
-                    filePath = "",
-                    tempFilePath = "",
-                    fileName = request.fileName.ifBlank { "unknown file" },
-                    status = DownloadStatus.FAILED,
-                    createdTime = time,
-                    updateTime = time,
-                    uid = request.uid,
-                    type = request.type,
-                    source = request.source,
-                    cover = request.cover,
-                    duration = request.duration,
-                    resolution = request.resolution,
-                    extra = request.extra,
-                    headers = request.headers,
-                    tag = request.tag
-                )
-                failTasks.add(failedTask)
             }
-        }
-        // 2. 将预处理失败的任务直接插入数据库
-        if (failTasks.isNotEmpty()) {
-            repository.insert(*failTasks.toTypedArray())
-        }
-        // 3. 持久化：将新任务批量写入数据库
-        if (successTasksToInsert.isNotEmpty()) {
-            val successIds = repository.insert(*successTasksToInsert.toTypedArray())
 
-            // 4. 根据新 ID 从数据库重新获取完整的、带有正确 ID 的任务对象
-            val newTasksWithCorrectIds = repository.getByIds(successIds)
-
-            // 5. 委托：将带有正确 ID 的任务交给 Dispatcher 处理
-            if (newTasksWithCorrectIds.isNotEmpty()) {
-                dispatcher.enqueue(newTasksWithCorrectIds)
-            }
+            val insertedIds = repository.insert(*tasks.toTypedArray())
+            config.logger.d(TAG, "$insertedIds")
+            // 触发调度器检查新任务
+            dispatcher.scheduleNext()
         }
-
-//       return successIds + failIds
     }
 
     // --- 所有控制方法都变为对 Dispatcher 的委托 ---
 
     override fun pause(vararg ids: Long) {
-        if (ids.isNotEmpty()) dispatcher.pause(ids.toList())
+        if (ids.isEmpty()) return
+        dispatcher.pause(ids.toList())
     }
 
     override fun resume(vararg ids: Long) {
-        if (ids.isNotEmpty()) dispatcher.resume(ids.toList())
+        if (ids.isEmpty()) return
+        dispatcher.resume(ids.toList())
     }
 
     override fun cancel(vararg ids: Long) {
-        if (ids.isNotEmpty()) dispatcher.cancel(ids.toList())
+        if (ids.isEmpty()) return
+        dispatcher.cancel(ids.toList())
     }
 
     override fun delete(vararg ids: Long, deleteFile: Boolean) {
-        if (ids.isNotEmpty()) dispatcher.delete(ids.toList(), deleteFile)
+        if (ids.isEmpty()) return
+        dispatcher.delete(ids.toList(), deleteFile)
     }
 
     override fun getTask(id: Long): Flow<DownloadTaskEntity?> {
@@ -228,7 +167,57 @@ internal class DownloaderImpl(
         return repository.getByUidFlow(uid)
     }
 
-    override fun getAllTasks(): Flow<List<DownloadTaskEntity>> {
-        return repository.getAllTasksFlow()
+    override fun getAllTasks(order: Index.Order): Flow<List<DownloadTaskEntity>> {
+        return repository.getAllTasksFlow(order)
+    }
+
+    override fun getAllTasksPaged(
+        pageSize: Int,
+        order: Index.Order,
+    ): Flow<PagingData<DownloadTaskEntity>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = pageSize,
+                enablePlaceholders = false,
+                initialLoadSize = pageSize
+            ),
+            pagingSourceFactory = { repository.getAllTasksPaged(order) }
+        ).flow
+    }
+
+    override fun getCompletedTasks(order: Index.Order): Flow<List<DownloadTaskEntity>> {
+        return repository.getCompletedTasks(order)
+    }
+
+    override fun getCompletedTasksPaged(
+        pageSize: Int,
+        order: Index.Order,
+    ): Flow<PagingData<DownloadTaskEntity>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = pageSize,
+                enablePlaceholders = false,
+                initialLoadSize = pageSize
+            ),
+            pagingSourceFactory = { repository.getAllTasksPaged(order) }
+        ).flow
+    }
+
+    override fun getUpdateTasks(order: Index.Order): Flow<List<DownloadTaskEntity>> {
+        return repository.getUpdateTasks(order)
+    }
+
+    override fun getUpdateTasksPaged(
+        pageSize: Int,
+        order: Index.Order,
+    ): Flow<PagingData<DownloadTaskEntity>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = pageSize,
+                enablePlaceholders = false,
+                initialLoadSize = pageSize
+            ),
+            pagingSourceFactory = { repository.getAllTasksPaged(order) }
+        ).flow
     }
 }

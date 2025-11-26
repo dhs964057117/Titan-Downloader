@@ -17,6 +17,5 @@ interface IDownloadStrategy {
     fun download(
         task: DownloadTaskEntity,
         client: OkHttpClient,
-        stateChecker: suspend () -> DownloadStatus?
     ): Flow<DownloadState>
 }
