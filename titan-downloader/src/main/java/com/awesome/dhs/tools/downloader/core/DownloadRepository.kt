@@ -76,6 +76,7 @@ internal interface DownloadRepository {
     suspend fun getByIds(ids: List<Long>): List<DownloadTaskEntity>
     suspend fun getActiveTasks(): List<DownloadTaskEntity>
     fun getCompletedTasks(order: Index.Order): Flow<List<DownloadTaskEntity>>
+    suspend fun addCompletedTasks(vararg task: DownloadTaskEntity): List<Long>
     fun getCompletedTasksPaged(order: Index.Order): PagingSource<Int, DownloadTaskEntity>
     fun getUpdateTasks(order: Index.Order): Flow<List<DownloadTaskEntity>>
     fun getUpdateTasksPaged(order: Index.Order): PagingSource<Int, DownloadTaskEntity>
@@ -146,6 +147,10 @@ internal class DownloadRepositoryImpl(private val dao: DownloadDao) : DownloadRe
 
     override fun getCompletedTasksPaged(order: Index.Order): PagingSource<Int, DownloadTaskEntity> {
         return dao.getCompletedTasksPaged(order)
+    }
+
+    override suspend fun addCompletedTasks(vararg task: DownloadTaskEntity): List<Long> {
+        return dao.insert(*task)
     }
 
     override fun getUpdateTasks(order: Index.Order): Flow<List<DownloadTaskEntity>> {

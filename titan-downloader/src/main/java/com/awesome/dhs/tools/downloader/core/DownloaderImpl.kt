@@ -203,6 +203,10 @@ internal class DownloaderImpl(
         ).flow
     }
 
+    override suspend fun addCompletedTasks(vararg task: DownloadTaskEntity): List<Long> {
+        return repository.insert(*task)
+    }
+
     override fun getUpdateTasks(order: Index.Order): Flow<List<DownloadTaskEntity>> {
         return repository.getUpdateTasks(order)
     }

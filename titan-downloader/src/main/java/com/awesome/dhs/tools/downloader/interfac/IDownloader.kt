@@ -27,6 +27,7 @@ interface IDownloader {
     fun getAllTasks(order: Index.Order = Index.Order.DESC): Flow<List<DownloadTaskEntity>>
     fun getUpdateTasks(order: Index.Order = Index.Order.DESC): Flow<List<DownloadTaskEntity>>
     fun getCompletedTasks(order: Index.Order = Index.Order.DESC): Flow<List<DownloadTaskEntity>>
+    suspend fun addCompletedTasks(vararg task: DownloadTaskEntity): List<Long>
     fun getAllTasksPaged(
         pageSize: Int = 20,
         order: Index.Order = Index.Order.DESC,
