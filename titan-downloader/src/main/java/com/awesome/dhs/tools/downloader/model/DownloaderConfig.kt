@@ -6,6 +6,7 @@ import com.awesome.dhs.tools.downloader.interfac.ILogger
 import com.awesome.dhs.tools.downloader.interfac.NoOpLogger
 import okhttp3.OkHttpClient
 import java.io.File
+import java.lang.RuntimeException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit
  **/
 data class DownloaderConfig(
     val maxConcurrentDownloads: Int,
+    val downloadThreadCount: Int,
     val finalDirectory: String,
     val logger: ILogger,
     val httpClient: OkHttpClient
@@ -26,6 +28,8 @@ data class DownloaderConfig(
     class Builder(context: Context) {
         private var maxConcurrentDownloads: Int = 3
         private var httpClient: OkHttpClient? = null
+
+        private var downloadThreadCount: Int? = null
         private var finalDirectory: String =
             (context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
                 ?: File(context.filesDir, "downloads")).absolutePath // [CHANGE] File -> String
@@ -40,10 +44,18 @@ data class DownloaderConfig(
 
         fun setLogger(logger: ILogger) = apply { this.logger = logger }
 
+        fun setDownloadThreadCount(threadCount: Int) = apply {
+            if (threadCount <= 0) {
+                throw RuntimeException("threadCount mast > 0")
+            }
+            this.downloadThreadCount = threadCount
+        }
+
         fun build(): DownloaderConfig {
             return DownloaderConfig(
                 maxConcurrentDownloads = maxConcurrentDownloads,
                 finalDirectory = finalDirectory,
+                downloadThreadCount = downloadThreadCount ?: DEFAULT_THREAD_COUNT,
                 logger = logger,
                 httpClient = this.httpClient ?: OkHttpClient.Builder()
                     .connectTimeout(30, TimeUnit.SECONDS) // 连接超时
@@ -54,4 +66,9 @@ data class DownloaderConfig(
             )
         }
     }
+
+    companion object {
+        private const val DEFAULT_THREAD_COUNT = 3
+    }
+
 }
