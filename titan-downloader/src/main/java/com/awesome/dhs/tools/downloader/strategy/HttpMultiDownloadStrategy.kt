@@ -77,6 +77,10 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
                 return@channelFlow
             }
         }
+        // 这里没有去初始化直接设置 RandomAccessFile 大小，考虑两点
+        // 1.下载开始直接设置文件大小，用户端会很奇怪，刚开始下载就直接占了手机空间，这个应该由业务决定
+        // 2.分片下载的数据没有被保存在数据库中，每次会根据已下载文件的当前大小来决定后续分片，直接设置大小会导致
+        // isChunkValid 这个方法永远返回 true,如果有本地数据存储了分片下载数据，可以考虑前置设置文件大小
 
         // 步骤2：初始化未下载区间池
         initPendingChunks(File(task.tempFilePath), totalFileSize)
@@ -179,6 +183,7 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
                 onState(DownloadState.Success)
             } else {
                 // 真正的下载不完整（非暂停导致）
+                DownloaderManager.config.logger.d(TAG, "文件下载不完整：${completedBytes.get()}/${totalFileSize}")
                 onState(DownloadState.Error("文件下载不完整：${completedBytes.get()}/${totalFileSize}"))
             }
         }
@@ -262,8 +267,9 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
             throw IOException("小块$start-$end 请求失败，响应码：${response.code}")
         }
 
-        response.body?.byteStream()?.use { inputStream ->
-            RandomAccessFile(tempFile, "rw").use { raf ->
+        val raf = RandomAccessFile(tempFile, "rw")
+        response.body.byteStream().use { inputStream ->
+            raf.let { raf ->
                 raf.seek(start)
                 val buffer = ByteArray(8 * 1024)
                 var bytesRead: Int
@@ -272,17 +278,21 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
                 }
             }
         }
-
-        if (!isChunkValid(tempFile, start, end)) {
+        // 刷新磁盘
+        raf.fd.sync()
+        if (!isChunkValid(raf, start, end)) {
             throw IOException("小块$start-$end 数据验证失败")
         }
+        // 关闭流
+        raf.close()
     }
 
     private fun initPendingChunks(tempFile: File, totalSize: Long) {
         DownloaderManager.config.logger.d(TAG, "初始化未下载区间池，文件总大小：$totalSize")
 
-        if (!tempFile.exists()) {
-            splitIntoChunks(0L, totalSize)
+        if (!tempFile.exists() || tempFile.length() == 0L) {
+            // 0 ~ totalFileSize - 1
+            splitIntoChunks(0L, totalSize - 1)
             DownloaderManager.config.logger.d(TAG, "全新下载，拆分出 ${pendingChunks.size} 个小块")
             return
         }
@@ -292,9 +302,10 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
         var downloadedChunks = 0
         var pendingChunksCount = 0
 
+        val raf = RandomAccessFile(tempFile,"r")
         while (current < totalSize) {
             val chunkEnd = kotlin.comparisons.minOf(current + CHUNK_SIZE - 1, totalSize - 1)
-            val isChunkDownloaded = fileLength > chunkEnd && isChunkValid(tempFile, current, chunkEnd)
+            val isChunkDownloaded = fileLength > chunkEnd && isChunkValid(raf, current, chunkEnd)
 
             if (isChunkDownloaded) {
                 completedBytes.addAndGet(chunkEnd - current + 1)
@@ -319,9 +330,9 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
         }
     }
 
-    private fun isChunkValid(file: File, start: Long, end: Long): Boolean {
+    private fun isChunkValid(raf: RandomAccessFile, start: Long, end: Long): Boolean {
         return try {
-            RandomAccessFile(file, "r").use { raf ->
+            raf.let { raf ->
                 raf.seek(start)
                 val buffer = ByteArray(1)
                 raf.read(buffer) != -1

@@ -45,8 +45,8 @@ data class DownloaderConfig(
         fun setLogger(logger: ILogger) = apply { this.logger = logger }
 
         fun setDownloadThreadCount(threadCount: Int) = apply {
-            if (threadCount <= 0) {
-                throw RuntimeException("threadCount mast > 0")
+            if (threadCount !in 1..5) {
+                throw RuntimeException("threadCount mast > 1..5")
             }
             this.downloadThreadCount = threadCount
         }
