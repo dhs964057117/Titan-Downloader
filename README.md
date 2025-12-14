@@ -61,17 +61,79 @@ Ensure you have the necessary permissions in your AndroidManifest.xml.
 ```
 ### 3. Initialize in Application
 ```kotlin
-override fun onCreate() {
-    super.onCreate()
-    val downloaderConfig = DownloaderConfig.Builder(this)
-        .setFinalDirectory(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath)
-        .setMaxConcurrentDownloads(5)
-    //            .setHttpClient()
-        .setLogger(TimberLogger()) // 使用我们自己实现的 Logger
-        .build()
+class DownloadApplication : Application() {
+    companion object {
+        lateinit var context: Context
+    }
     
-    // 初始化 Downloader 单例
-    DownloaderManager.initialize(this, downloaderConfig)
+    // Custom notification implementation (optional)
+    private val notificationProvider = object : INotificationProvider{
+        override suspend fun createForegroundInfo(
+            task: DownloadTaskEntity,
+            notification: Notification,
+        ): androidx.work.ForegroundInfo {
+        }
+
+        override fun createClickIntent(task: DownloadTaskEntity): PendingIntent? {
+        }
+
+        override suspend fun buildNotification(
+            task: DownloadTaskEntity,
+            clickIntent: PendingIntent?,
+        ): NotificationCompat.Builder {
+        }
+
+        override suspend fun updateNotification(
+            notificationId: Int,
+            task: DownloadTaskEntity,
+        ) {
+        }
+
+        override fun cancel(notificationId: Int) {
+        }
+
+        override fun show(
+            notificationId: Int,
+            builder: NotificationCompat.Builder,
+        ) {
+        }
+    }
+    override fun onCreate() {
+        super.onCreate()
+        context = this
+        // 使用 Builder 创建配置
+        val downloaderConfig = DownloaderConfig.Builder(this)
+            .setFinalDirectory(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath) //Currently supports traditional file paths, MediaStore, and SAF (Storage Access Framework).
+            .setNotificationClickIntent(createActionIntent())
+            .setMaxConcurrentDownloads(5)
+            .setNotificationProvider(notificationProvider) // Custom notification implementation
+//            .setHttpClient()
+            .setLogger(TimberLogger()) // 使用我们自己实现的 Logger
+            .build()
+
+        // 初始化 Downloader 单例
+        DownloaderManager.initialize(this, downloaderConfig)
+    }
+
+    private fun createActionIntent(): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java)
+        return PendingIntent.getActivity(
+            context,
+            10000,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+}
+
+class TimberLogger : ILogger {
+    override fun d(tag: String, message: String) {
+        Log.d(tag, message)
+    }
+
+    override fun e(tag: String, message: String, throwable: Throwable?) {
+        Log.e(tag, message, throwable)
+    }
 }
 ```
 📚 API Usage
