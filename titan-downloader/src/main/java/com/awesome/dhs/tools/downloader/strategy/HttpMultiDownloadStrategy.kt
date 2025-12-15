@@ -170,23 +170,43 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
     }
 
     /**
-     * 预分配文件大小（下载前强制占位）
-     * @return true：成功；false：失败
+     * 预分配文件大小（极简版：仅文件不存在/大小异常时重置，否则复用）
+     * @return true：文件状态正常；false：失败
      */
     private fun preAllocateFile(tempFile: File, totalSize: Long): Boolean {
-        return try {
-            // 父目录不存在则创建
-            tempFile.parentFile?.mkdirs()
+        // 前置校验：总大小非法直接返回
+        if (totalSize <= 0) {
+            DownloaderManager.config.logger.e(TAG, "预分配文件失败：目标大小非法($totalSize)")
+            return false
+        }
 
-            RandomAccessFile(tempFile, "rw").use { raf ->
-                raf.setLength(totalSize) // 强制设置文件总大小
-                raf.fd.sync() // 刷盘确保生效
+        try {
+            tempFile.parentFile?.mkdirs() // 确保目录存在（幂等操作）
+
+            // 核心判断：仅文件不存在 或 大小不匹配时，才重置文件
+            if (!tempFile.exists() || tempFile.length() != totalSize) {
+                // 1. 删除异常文件（如果存在）
+                if (tempFile.exists() && !tempFile.delete()) {
+                    DownloaderManager.config.logger.e(TAG, "删除异常文件失败：${tempFile.path}")
+                    return false
+                }
+                // 2. 重新创建并预分配大小
+                RandomAccessFile(tempFile, "rw").use { raf ->
+                    raf.setLength(totalSize)
+                    raf.fd.sync() // 刷盘确保生效
+                }
+                DownloaderManager.config.logger.d(TAG,
+                    if (!tempFile.exists()) "新建文件并预分配大小：${tempFile.path}($totalSize)"
+                    else "重置文件并预分配大小：${tempFile.path}（原大小：${tempFile.length()}→$totalSize）"
+                )
+            } else {
+                // 文件存在且大小匹配，直接复用
+                DownloaderManager.config.logger.d(TAG, "文件正常，直接复用：${tempFile.path}($totalSize)")
             }
-            DownloaderManager.config.logger.d(TAG, "文件预分配大小成功：${tempFile.path}，大小：$totalSize 字节")
-            true
+            return true
         } catch (e: Exception) {
-            DownloaderManager.config.logger.e(TAG, "文件预分配大小失败", e)
-            false
+            DownloaderManager.config.logger.e(TAG, "预分配文件异常", e)
+            return false
         }
     }
 
