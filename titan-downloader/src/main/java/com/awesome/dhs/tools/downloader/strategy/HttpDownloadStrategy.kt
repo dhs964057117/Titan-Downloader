@@ -1,5 +1,6 @@
 package com.awesome.dhs.tools.downloader.strategy
 
+import com.awesome.dhs.tools.downloader.DownloaderManager
 import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.interfac.IDownloadStrategy
 import com.awesome.dhs.tools.downloader.model.DownloadState
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.internal.concurrent.Task
 
 /**
  * 下载策略分发器（核心）
@@ -27,7 +29,7 @@ class HttpDownloadStrategy : IDownloadStrategy {
         stateChecker: suspend () -> DownloadStatus?
     ): Flow<DownloadState> = flow {
         // 步骤1：检测是否支持断点续传（HEAD请求验证Accept-Ranges头）
-        val isRangeSupported = checkRangeSupport(task.url, client)
+        val isRangeSupported = checkRangeSupport(task, client)
 
         // 步骤2：分发策略并转发结果
         val downloadFlow = if (isRangeSupported) {
@@ -47,11 +49,13 @@ class HttpDownloadStrategy : IDownloadStrategy {
     /**
      * 核心检测逻辑：验证URL是否支持Range请求（断点续传）
      */
-    private fun checkRangeSupport(url: String, client: OkHttpClient): Boolean {
+    private fun checkRangeSupport(task: DownloadTaskEntity, client: OkHttpClient): Boolean {
         return try {
             val request = Request.Builder()
-                .url(url)
-                .head() // HEAD请求：仅获取响应头，不下载内容
+                .url(task.url)
+                .head()
+                // 添加 header
+                .apply { task.headers.forEach { (k, v) -> addHeader(k, v) } }
                 .build()
 
             client.newCall(request).execute().use { response ->
@@ -73,6 +77,7 @@ class HttpDownloadStrategy : IDownloadStrategy {
             }
         } catch (e: Exception) {
             // 任何异常 → 降级到单线程
+            DownloaderManager.config.logger.e("HttpDownloadStrategy", "checkRangeSupport error", e)
             false
         }
     }
