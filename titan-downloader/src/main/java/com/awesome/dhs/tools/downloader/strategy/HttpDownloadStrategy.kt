@@ -66,6 +66,8 @@ class HttpDownloadStrategy : IDownloadStrategy {
                 // 额外校验：部分服务器返回Content-Length但不支持Range，需二次验证
                 if (isSupported) {
                     val contentLength = response.header("Content-Length")?.toLongOrNull() ?: 0L
+                    // 赋值 task,后面不需要再请求了contentLength
+                    task.totalBytes = contentLength
                     // 小文件（<10MB）直接用单线程，避免多线程开销
                     return contentLength > 10 * 1024 * 1024L
                 }
