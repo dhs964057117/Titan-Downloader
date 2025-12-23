@@ -62,20 +62,78 @@ android:foregroundServiceType="dataSync" tools:node="merge" />
    您必须在 Application 类中对下载器进行一次性初始化。这是非常关键的一步。
 
 ```Kotlin
+class DownloadApplication : Application() {
+    companion object {
+        lateinit var context: Context
+    }
 
-class MainApplication : Application() {
+    // 自定义的通知实现(可选)
+    private val notificationProvider = object : INotificationProvider{
+        override suspend fun createForegroundInfo(
+            task: DownloadTaskEntity,
+            notification: Notification,
+        ): androidx.work.ForegroundInfo {
+        }
 
+        override fun createClickIntent(task: DownloadTaskEntity): PendingIntent? {
+        }
+
+        override suspend fun buildNotification(
+            task: DownloadTaskEntity,
+            clickIntent: PendingIntent?,
+        ): NotificationCompat.Builder {
+        }
+
+        override suspend fun updateNotification(
+            notificationId: Int,
+            task: DownloadTaskEntity,
+        ) {
+        }
+
+        override fun cancel(notificationId: Int) {
+        }
+
+        override fun show(
+            notificationId: Int,
+            builder: NotificationCompat.Builder,
+        ) {
+        }
+    }
     override fun onCreate() {
         super.onCreate()
-
-        // 1. (可选) 创建自定义配置
+        context = this
+        // 使用 Builder 创建配置
         val downloaderConfig = DownloaderConfig.Builder(this)
-            .setMaxConcurrentDownloads(4) // 例如，设置最大并发数为4
-            .setFinalDirectory(filesDir.absolutePath) // 设置默认的最终存储目录
+            .setFinalDirectory(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath) // 现在支持传统file路径、MediaStore和SAF
+            .setNotificationClickIntent(createActionIntent())
+            .setMaxConcurrentDownloads(5)
+            .setNotificationProvider(notificationProvider) //自定义通知实现
+//            .setHttpClient()
+            .setLogger(TimberLogger()) // 使用我们自己实现的 Logger
             .build()
 
-        // 2. 初始化下载器引擎 (整个 App 只需调用一次)
+        // 初始化 Downloader 单例
         DownloaderManager.initialize(this, downloaderConfig)
+    }
+
+    private fun createActionIntent(): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java)
+        return PendingIntent.getActivity(
+            context,
+            10000,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+}
+
+class TimberLogger : ILogger {
+    override fun d(tag: String, message: String) {
+        Log.d(tag, message)
+    }
+
+    override fun e(tag: String, message: String, throwable: Throwable?) {
+        Log.e(tag, message, throwable)
     }
 }
 ```
