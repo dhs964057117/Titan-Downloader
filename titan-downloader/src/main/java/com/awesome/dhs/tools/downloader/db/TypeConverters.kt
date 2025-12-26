@@ -2,8 +2,8 @@ package com.awesome.dhs.tools.downloader.db
 
 import androidx.room.TypeConverter
 import com.awesome.dhs.tools.downloader.model.DownloadStatus
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /**
  * FileName: TypeConverters
@@ -14,7 +14,11 @@ import com.google.gson.reflect.TypeToken
 
 
 class TypeConverters {
-    private val gson = Gson()
+
+    private val json = Json {
+        isLenient = true          // 解析更宽松的JSON格式
+        ignoreUnknownKeys = true  // 忽略JSON中存在但数据类中没有的字段
+    }
 
     @TypeConverter
     fun fromDownloadStatus(status: DownloadStatus?): String? {
@@ -28,12 +32,11 @@ class TypeConverters {
 
     @TypeConverter
     fun fromHeaders(headers: Map<String, String>?): String? {
-        return headers?.let { gson.toJson(it) }
+        return headers?.let { json.encodeToString(it) }
     }
 
     @TypeConverter
     fun toHeaders(headersJson: String?): Map<String, String>? {
-        val type = object : TypeToken<Map<String, String>>() {}.type
-        return headersJson?.let { gson.fromJson(it, type) }
+        return headersJson?.let { json.decodeFromString(it) }
     }
 }
