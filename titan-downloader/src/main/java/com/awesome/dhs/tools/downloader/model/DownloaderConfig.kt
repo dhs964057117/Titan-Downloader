@@ -9,6 +9,7 @@ import com.awesome.dhs.tools.downloader.interfac.NoOpLogger
 import com.awesome.dhs.tools.downloader.notification.DefaultNotificationProvider
 import okhttp3.OkHttpClient
 import java.io.File
+import java.lang.RuntimeException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeUnit
  **/
 data class DownloaderConfig(
     val maxConcurrentDownloads: Int,
+    val downloadThreadCount: Int,
     val finalDirectory: String,
     val logger: ILogger,
     val httpClient: OkHttpClient,
@@ -29,6 +31,7 @@ data class DownloaderConfig(
         const val CONNECT_TIMEOUT = 30L
         const val READ_TIMEOUT = 5 * 60L
         const val WRITE_TIMEOUT = 30L
+        private const val DEFAULT_THREAD_COUNT = 3
     }
 
     /**
@@ -37,6 +40,7 @@ data class DownloaderConfig(
     class Builder(private val context: Context) {
         private var maxConcurrentDownloads: Int = 3
         private var httpClient: OkHttpClient? = null
+        private var downloadThreadCount: Int? = null
         private var finalDirectory: String =
             (context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
                 ?: File(context.filesDir, "downloads")).absolutePath // [CHANGE] File -> String
@@ -50,6 +54,13 @@ data class DownloaderConfig(
             apply { this.finalDirectory = dirPath } // [CHANGE] File -> String
 
         fun setLogger(logger: ILogger) = apply { this.logger = logger }
+
+        fun setDownloadThreadCount(threadCount: Int) = apply {
+            if (threadCount !in 1..5) {
+                throw RuntimeException("threadCount mast > 1..5")
+            }
+            this.downloadThreadCount = threadCount
+        }
 
         /**
          * 允许提供自定义的通知实现。
@@ -78,6 +89,7 @@ data class DownloaderConfig(
             return DownloaderConfig(
                 maxConcurrentDownloads = maxConcurrentDownloads,
                 finalDirectory = finalDirectory,
+                downloadThreadCount = downloadThreadCount ?: DEFAULT_THREAD_COUNT,
                 logger = logger,
                 httpClient = finalHttpClient,
                 notificationProvider = finalProvider,
