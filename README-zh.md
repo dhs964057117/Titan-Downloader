@@ -208,7 +208,7 @@ class MyActivity : AppCompatActivity() {
 ```
 
 🗺️ 路线图 (未来计划)
-* **HLS 视频流下载:** 支持下载 HLS (m3u8) 视频流并合并为单个文件。
+* **✅HLS 视频流下载:** 支持下载 HLS (m3u8) 视频流并合并为单个文件。
 
 * **任务优先级:** 允许为下载任务设置优先级。
 
@@ -235,3 +235,17 @@ limitations under the License.
 
 💬Community
 ![image-20260103151756968](imgs/titan-downloader.png)
+
+## 🚀 支持一下我的App SnapSaver
+
+[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" width="180">](https://play.google.com/store/apps/details?id=com.awesome.dhs.tools.snapsave&pcampaignid=web_share)
+   [![官方网站](https://img.shields.io/badge/官方网站-SnapSaver-2C3E50?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiBmaWxsPSJub25lIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIxMiIgeTE9IjEyIiB4Mj0iODgiIHkyPSI4OCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzZERDVGQSIvPjxzdG9wIG9mZnNldD0iMC41IiBzdG9wLWNvbG9yPSIjOEE3M0Y1Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjRjc3N0IyIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01MCA3MUMzOC40MDIgNzEgMjkgNjEuNTk4IDI5IDUwQzI5IDM4LjQwMiAzOC40MDIgMjkgNTAgMjlDNjEuNTk4IDI5IDcxIDM4LjQwMiA3MSA1MEM3MSA1My42ODU5IDcwLjEwMzMgNTcuMTcxMiA2OC41MzU1IDYwLjE5NjZMODQuMjkyOSA3NS45NTRDODUuNDY0NSA3Ny4xMjU1IDg1LjQ2NDUgNzkuMDI1MSA4NC4yOTI5IDgwLjE5NjZMODAuMTk2NiA4NC4yOTI5Qzc5LjAyNTEgODUuNDY0NSA3Ny4xMjU1IDg1LjQ2NDUgNzUuOTU0IDg0LjI5MjlMNjAuMTk2NiA2OC41MzU1QzU3LjE3MTIgNzAuMTAzMyA1My42ODU5IDcxIDUwIDcxWk04OCA1MFYyMkM4OCAxNS4zNzI2IDgyLjYyNzQgMTAgNzYgMTBIMjRDMTcuMzcyNiAxMCAxMiAxNS4zNzI2IDEyIDIyVjUwQzEyIDcwLjk4NjggMjkuMDEzMiA4OCA1MCA4OEM3MC45ODY4IDg4IDg4IDcwLjk4NjggODggNTBaTTUwIDYzQzU3LjE3OTcgNjMgNjMgNTcuMTc5NyA2MyA1MEM2MyA0Mi44MjAzIDU3LjE3OTcgMzcgNTAgMzdDNDIuODIwMyAzNyAzNyA0Mi44MjAzIDM3IDUwQzM3IDU3LjE3OTcgNDIuODIwMyA2MyA1MCA2M1oiIGZpbGw9InVybCgjZykiLz48L3N2Zz4=&logoColor=white)](https://snapsaver.suanss.com/)
+
+**SnapSaver 浏览器** 是一款简洁、易用且功能强大的 Android 网页浏览器。它集极速页面加载、智能下载管理和隐私保护于一体，为您带来卓越的上网体验。
+
+- ⚡ **极致快速** – 优化的渲染引擎，支持广告拦截。
+- 📥 **无缝集成** – 基于 Titan Downloader SDK 构建，浏览器内直接享有同样可靠、高性能的下载能力。
+- 🔒 **隐私优先** – 无多余权限，隐身模式，拦截追踪器。
+- 🎨 **简洁直观** – 清爽界面，支持手势控制与夜间模式。
+
+👉 **[前往 Google Play 下载](https://play.google.com/store/apps/details?id=com.awesome.dhs.tools.snapsave&pcampaignid=web_share)**，体验下一代移动浏览！

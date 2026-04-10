@@ -195,7 +195,7 @@ class MyActivity : AppCompatActivity() {
 }
 ```
 🗺️ Roadmap
-* **HLS Video Stream Downloading:** Support for downloading HLS (m3u8) video streams and merging them into a single file.
+* **✅HLS Video Stream Downloading:** Support for downloading HLS (m3u8) video streams and merging them into a single file.
 
 * **Task Prioritization:** Allow setting priorities for download tasks.
 
@@ -222,3 +222,16 @@ limitations under the License.
 
 💬Community
 ![image-20260103151756968](imgs/titan-downloader.png)
+
+## 🚀 Try Our Browser App: SnapSaver
+[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" width="180">](https://play.google.com/store/apps/details?id=com.awesome.dhs.tools.snapsave&pcampaignid=web_share)
+   [![Website](https://img.shields.io/badge/Website-SnapSaver-2C3E50?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiBmaWxsPSJub25lIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIxMiIgeTE9IjEyIiB4Mj0iODgiIHkyPSI4OCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzZERDVGQSIvPjxzdG9wIG9mZnNldD0iMC41IiBzdG9wLWNvbG9yPSIjOEE3M0Y1Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjRjc3N0IyIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01MCA3MUMzOC40MDIgNzEgMjkgNjEuNTk4IDI5IDUwQzI5IDM4LjQwMiAzOC40MDIgMjkgNTAgMjlDNjEuNTk4IDI5IDcxIDM4LjQwMiA3MSA1MEM3MSA1My42ODU5IDcwLjEwMzMgNTcuMTcxMiA2OC41MzU1IDYwLjE5NjZMODQuMjkyOSA3NS45NTRDODUuNDY0NSA3Ny4xMjU1IDg1LjQ2NDUgNzkuMDI1MSA4NC4yOTI5IDgwLjE5NjZMODAuMTk2NiA4NC4yOTI5Qzc5LjAyNTEgODUuNDY0NSA3Ny4xMjU1IDg1LjQ2NDUgNzUuOTU0IDg0LjI5MjlMNjAuMTk2NiA2OC41MzU1QzU3LjE3MTIgNzAuMTAzMyA1My42ODU5IDcxIDUwIDcxWk04OCA1MFYyMkM4OCAxNS4zNzI2IDgyLjYyNzQgMTAgNzYgMTBIMjRDMTcuMzcyNiAxMCAxMiAxNS4zNzI2IDEyIDIyVjUwQzEyIDcwLjk4NjggMjkuMDEzMiA4OCA1MCA4OEM3MC45ODY4IDg4IDg4IDcwLjk4NjggODggNTBaTTUwIDYzQzU3LjE3OTcgNjMgNjMgNTcuMTc5NyA2MyA1MEM2MyA0Mi44MjAzIDU3LjE3OTcgMzcgNTAgMzdDNDIuODIwMyAzNyAzNyA0Mi44MjAzIDM3IDUwQzM3IDU3LjE3OTcgNDIuODIwMyA2MyA1MCA2M1oiIGZpbGw9InVybCgjZykiLz48L3N2Zz4=&logoColor=white)](https://snapsaver.suanss.com/)
+
+**SnapSaver** is a clean, powerful, and easy-to-use web browser for Android. It combines lightning-fast page loading, smart download management, and a privacy-focused design to give you the best browsing experience.
+
+- ⚡ **Blazing Fast** – Optimized rendering engine with ad-blocking support.
+- 📥 **Seamless Integration** – Built on top of the Titan Downloader SDK, enjoy the same reliable, high-performance downloading capabilities directly in the browser.
+- 🔒 **Privacy First** – No unnecessary permissions, incognito mode, and tracker blocking.
+- 🎨 **Minimal & Intuitive** – Clean UI with gesture controls and night mode.
+
+👉 **[Download on Google Play](https://play.google.com/store/apps/details?id=com.awesome.dhs.tools.snapsave&pcampaignid=web_share)** and experience the future of mobile browsing!
