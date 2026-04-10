@@ -10,6 +10,8 @@ import android.os.Environment
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircle
@@ -113,7 +116,8 @@ fun DownloadScreen(viewModel: DownloadViewModel) {
         },
         bottomBar = {
             ControlPanel(
-                onAddSingle = { viewModel.addSingleDownload() },
+                onAddNormal = { viewModel.addNormalDownload() },
+                onAddM3u8 = { viewModel.addM3u8Download() },
                 onAddBatch = { viewModel.addBatchDownloads() },
             )
         }
@@ -154,17 +158,30 @@ fun DownloadScreen(viewModel: DownloadViewModel) {
 }
 
 @Composable
-fun ControlPanel(onAddSingle: () -> Unit, onAddBatch: () -> Unit) {
+fun ControlPanel(onAddNormal: () -> Unit, onAddM3u8: () -> Unit, onAddBatch: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
+        horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        Button(onClick = onAddSingle) {
+        Column(
+            modifier = Modifier
+                .clickable(onClick = onAddNormal)
+                .background(ButtonDefaults.buttonColors().containerColor, RoundedCornerShape(20f)),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Icon(Icons.Default.Add, contentDescription = "Add Single")
-            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-            Text("Add Single")
+            Text("normal")
+        }
+        Column(
+            modifier = Modifier
+                .clickable(onClick = onAddM3u8)
+                .background(ButtonDefaults.buttonColors().containerColor, RoundedCornerShape(20f)),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Single")
+            Text("m3u8")
         }
         Button(onClick = onAddBatch) {
             Icon(Icons.Default.AddCircle, contentDescription = "Add Batch")
@@ -230,7 +247,7 @@ fun DownloadItem(
             ) {
                 if (!isMultiSelectMode) {
                     Text(
-                        "${formatBytes(task.downloadedBytes)} / ${formatBytes(task.totalBytes)}",
+                        "${formatBytes(task.downloadedBytes)} / ${formatBytes(task.totalBytes.takeIf { it > 0 } ?: task.downloadedBytes)}",
                         fontSize = 12.sp,
                     )
                     if (task.status == DownloadStatus.RUNNING || task.status == DownloadStatus.QUEUED) {

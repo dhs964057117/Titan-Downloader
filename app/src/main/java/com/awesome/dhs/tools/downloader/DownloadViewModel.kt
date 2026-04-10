@@ -48,10 +48,31 @@ class DownloadViewModel : ViewModel() {
 //        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4",
 //        "http://mirror.aarnet.edu.au/pub/TED-talks/911Mothers_2010W-480p.mp4"
     )
+    private val m3u8Urls = listOf(
+//        "https://sample.vodobox.net/skate_phantom_flex_4k/skate_phantom_flex_4k.m3u8",
+//        "https://playertest.longtailvideo.com/adaptive/bipbop/gear4/prog_index.m3u8",
+//        "http://content.jwplatform.com/manifests/vM7nH0Kl.m3u8", // 音视频轨道和单音轨
+//        "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+//        "https://test-streams.mux.dev/tos_ismc/main.m3u8",  //音轨道、视频轨道分离
+//        "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", //音视频轨
+//        "http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8" //音视频轨,
+        "https://sf1-cdn-tos.huoshanstatic.com/obj/media-fe/xgplayer_doc_video/hls/xgplayer-demo.m3u8" //音视频轨
+    )
 
-    fun addSingleDownload() {
+    fun addNormalDownload() {
         viewModelScope.launch {
             val url = sampleUrls.random()
+            val request = DownloadRequest(
+                url = url,
+                fileName = url.substring(url.lastIndexOf('/') + 1) // 简单的文件名提取
+            )
+            Downloader.enqueue(request)
+        }
+    }
+
+    fun addM3u8Download() {
+        viewModelScope.launch {
+            val url = m3u8Urls.random()
             val request = DownloadRequest(
                 url = url,
                 fileName = url.substring(url.lastIndexOf('/') + 1) // 简单的文件名提取
