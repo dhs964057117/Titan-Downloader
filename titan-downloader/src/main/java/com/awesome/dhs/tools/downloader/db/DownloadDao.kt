@@ -69,6 +69,7 @@ internal interface DownloadDao {
         filePath = :filePath, 
         tempFilePath = :tempFilePath, 
         fileName = :fileName, 
+        type = :type,
         status = :status, 
         error = NULL, 
         updateTime = :time 
@@ -80,6 +81,7 @@ internal interface DownloadDao {
         filePath: String,
         tempFilePath: String,
         fileName: String,
+        type: String,
         status: DownloadStatus = DownloadStatus.READY,
         time: Long = System.currentTimeMillis(),
     )

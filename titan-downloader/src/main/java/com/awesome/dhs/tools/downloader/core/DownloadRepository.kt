@@ -43,6 +43,7 @@ internal interface DownloadRepository {
         filePath: String,
         tempFilePath: String,
         fileName: String,
+        type: String,
         status: DownloadStatus = DownloadStatus.READY,
         time: Long = System.currentTimeMillis(),
     )
@@ -109,9 +110,10 @@ internal class DownloadRepositoryImpl(private val dao: DownloadDao) : DownloadRe
         filePath: String,
         tempFilePath: String,
         fileName: String,
+        type: String,
         status: DownloadStatus,
         time: Long,
-    ) = dao.updateOnPrepareSuccess(id, filePath, tempFilePath, fileName, status, time)
+    ) = dao.updateOnPrepareSuccess(id, filePath, tempFilePath, fileName, type, status, time)
 
     override suspend fun updateProgress(
         id: Long,

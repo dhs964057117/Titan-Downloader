@@ -1,9 +1,9 @@
 package com.awesome.dhs.tools.downloader.strategy
 
-import com.awesome.dhs.tools.downloader.DownloaderManager
 import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.interfac.IDownloadStrategy
 import com.awesome.dhs.tools.downloader.model.DownloadState
+import com.awesome.dhs.tools.downloader.utils.CookieSerializer.saveFromResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -23,7 +23,8 @@ class HttpDownloadStrategy : IDownloadStrategy {
 
     override fun download(
         task: DownloadTaskEntity,
-        client: OkHttpClient): Flow<DownloadState> = flow {
+        client: OkHttpClient,
+    ): Flow<DownloadState> = flow {
         // 步骤1：检测是否支持断点续传（HEAD请求验证Accept-Ranges头）
         val isRangeSupported = checkRangeSupport(task, client)
 
@@ -51,7 +52,15 @@ class HttpDownloadStrategy : IDownloadStrategy {
                 .url(task.url)
                 .head()
                 // 添加 header
-                .apply { task.headers.forEach { (k, v) -> addHeader(k, v) } }
+                .apply {
+                    task.headers.forEach { (k, v) ->
+                        if ("cookie".equals(k, true)) {
+                            saveFromResponse(task.url, v)
+                        } else {
+                            addHeader(k, v)
+                        }
+                    }
+                }
                 .build()
 
             client.newCall(request).execute().use { response ->

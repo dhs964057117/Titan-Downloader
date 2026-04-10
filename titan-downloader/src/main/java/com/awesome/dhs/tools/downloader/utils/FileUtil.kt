@@ -6,7 +6,6 @@ import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
 import android.provider.MediaStore
-import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import com.awesome.dhs.tools.downloader.core.DownloadDispatcher.Companion.TAG
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +16,7 @@ import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.awesome.dhs.tools.downloader.Downloader
 import com.awesome.dhs.tools.downloader.utils.FileNameResolver.isDocumentTreeUri
+import com.awesome.dhs.tools.downloader.utils.MimeTypeUtils.getMimeType
 import java.io.FileInputStream
 
 
@@ -195,7 +195,7 @@ internal object FileUtil {
      * @return The final path of the new file.
      */
     @Throws(IOException::class)
-    private fun moveToPublicLegacy(sourceFile: File, finalPath: String): String {
+    fun moveToPublicLegacy(sourceFile: File, finalPath: String): String {
         val finalFile = File(finalPath)
 
         if (finalFile.exists()) {
@@ -395,28 +395,6 @@ internal object FileUtil {
             }
         } catch (e: Exception) {
             Downloader.config.logger.e(TAG, "Failed to deleteFile $e")
-        }
-    }
-
-    fun String?.getMimeType(): String {
-        val extension = this?.substringAfterLast('.', "")?.lowercase()
-        return when (extension) {
-            "jpg", "jpeg" -> "image/jpeg"
-            "png" -> "image/png"
-            "gif" -> "image/gif"
-            "webp" -> "image/webp"
-            "mp4" -> "video/mp4"
-            "avi" -> "video/x-msvideo"
-            "mov" -> "video/quicktime"
-            "mp3" -> "audio/mpeg"
-            "wav" -> "audio/wav"
-            "pdf" -> "application/pdf"
-            "doc", "docx" -> "application/msword"
-            "xls", "xlsx" -> "application/vnd.ms-excel"
-            "zip" -> "application/zip"
-            "txt" -> "text/plain"
-            else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
-                ?: "application/octet-stream"
         }
     }
 }

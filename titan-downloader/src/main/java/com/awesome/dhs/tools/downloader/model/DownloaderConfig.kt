@@ -3,6 +3,7 @@ package com.awesome.dhs.tools.downloader.model
 import android.app.PendingIntent
 import android.content.Context
 import android.os.Environment
+import com.awesome.dhs.tools.downloader.core.InMemoryCookieJar
 import com.awesome.dhs.tools.downloader.interfac.ILogger
 import com.awesome.dhs.tools.downloader.interfac.INotificationProvider
 import com.awesome.dhs.tools.downloader.interfac.NoOpLogger
@@ -26,6 +27,7 @@ data class DownloaderConfig(
     val httpClient: OkHttpClient,
     val notificationProvider: INotificationProvider,
     val notificationClickIntent: PendingIntent?,
+    val hlsSelector: HLSSelector = HLSSelector.MEDIUM,
 ) {
     companion object {
         const val CONNECT_TIMEOUT = 30L
@@ -48,6 +50,7 @@ data class DownloaderConfig(
         private var logger: ILogger = NoOpLogger()
         private var notificationProvider: INotificationProvider? = null
         private var notificationClickIntent: PendingIntent? = null
+        private var hlsSelector: HLSSelector? = null
         fun setHttpClient(client: OkHttpClient) = apply { this.httpClient = client }
         fun setMaxConcurrentDownloads(count: Int) = apply { this.maxConcurrentDownloads = count }
         fun setFinalDirectory(dirPath: String) =
@@ -74,12 +77,19 @@ data class DownloaderConfig(
         fun setNotificationClickIntent(notificationClickIntent: PendingIntent) =
             apply { this.notificationClickIntent = notificationClickIntent }
 
+        /**
+         * hls流选择策略
+         */
+        fun setHlsSelector(hlsSelector: HLSSelector) =
+            apply { this.hlsSelector = hlsSelector }
+
         fun build(): DownloaderConfig {
             val finalHttpClient = this.httpClient ?: OkHttpClient.Builder()
                 .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
                 .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
                 .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
+                .cookieJar(InMemoryCookieJar.instance)
                 .build()
 
             // 如果未提供，则使用默认的
