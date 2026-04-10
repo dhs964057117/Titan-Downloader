@@ -3,5 +3,6 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">mirror.aarnet.edu.au</domain>
         <domain includeSubdomains="true">ipv4.download.thinkbroadband.com</domain>
+        <domain includeSubdomains="true">devimages.apple.com</domain>
     </domain-config>
 </network-security-config>
