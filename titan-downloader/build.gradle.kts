@@ -61,6 +61,9 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.exoplayer.hls)
 }
 
 // ... (dependencies 块之后) ...
@@ -76,7 +79,7 @@ afterEvaluate {
                 // 定义 Maven 仓库中的坐标信息
                 groupId = "com.github.dhs964057117" // 你的 GitHub 用户名
                 artifactId = "Titan-Downloader"       // 你的仓库名称
-                version = "1.0.0-beta02"          // 你的版本号
+                version = "1.0.0-beta02-m3u8"          // 你的版本号
             }
         }
     }

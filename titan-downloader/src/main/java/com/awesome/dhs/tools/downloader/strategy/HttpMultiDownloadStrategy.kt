@@ -4,7 +4,7 @@ import com.awesome.dhs.tools.downloader.DownloaderManager
 import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.interfac.IDownloadStrategy
 import com.awesome.dhs.tools.downloader.model.DownloadState
-import com.awesome.dhs.tools.downloader.model.DownloadStatus
+import com.awesome.dhs.tools.downloader.utils.CookieSerializer.saveFromResponse
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.CancellationException
@@ -14,7 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
@@ -51,7 +50,7 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
      */
     data class Chunk(
         @SerializedName("start") val start: Long, // 分片起始字节
-        @SerializedName("end") val end: Long      // 分片结束字节
+        @SerializedName("end") val end: Long,      // 分片结束字节
     ) {
         // 辅助方法：计算分片大小
         val size: Long get() = end - start + 1
@@ -71,32 +70,39 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
     private data class DownloadConfig(
         @SerializedName("version") val version: Int = 1, // 配置版本（便于后续升级兼容）
         @SerializedName("totalSize") val totalSize: Long,
-        @SerializedName("completedChunks") val completedChunks: List<Chunk>
+        @SerializedName("completedChunks") val completedChunks: List<Chunk>,
     )
 
     private val gson = Gson()
+
     // 待下载分片队列（类型改为Chunk）
     private val pendingChunks = ConcurrentLinkedQueue<Chunk>()
+
     // 已完成字节数
     private val completedBytes = AtomicLong(0)
+
     // 文件总大小
     private var totalFileSize = 0L
+
     // 下载速度计算
     private val speedHistory = ConcurrentLinkedQueue<Pair<Long, Long>>()
+
     // 分片重试次数（Key改为Chunk）
     private val chunkRetryMap = ConcurrentHashMap<Chunk, Int>()
+
     // 主动暂停/取消标记
     private val isPausedOrCanceled = AtomicBoolean(false)
     override fun download(
         task: DownloadTaskEntity,
-        client: OkHttpClient): Flow<DownloadState> = channelFlow {
+        client: OkHttpClient,
+    ): Flow<DownloadState> = channelFlow {
         // 初始化资源
         resetState()
         val tempFile = File(task.tempFilePath)
         val configFile = File("${task.tempFilePath}$CONFIG_SUFFIX")
 
         // 步骤1：获取文件总大小（优先用任务缓存，否则请求头获取）
-        totalFileSize = task.totalBytes.takeIf { it > 0 } ?: getFileTotalSize(task.url, client) ?: run {
+        totalFileSize = task.totalBytes.takeIf { it > 0 } ?: getFileTotalSize(task, client) ?: run {
             send(DownloadState.Error("无法获取文件总大小，下载终止"))
             return@channelFlow
         }
@@ -299,7 +305,7 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
     private fun splitIntoChunks(
         start: Long,
         end: Long,
-        collectToList: MutableList<Chunk>? = null
+        collectToList: MutableList<Chunk>? = null,
     ) {
         var current = start
         while (current <= end) {
@@ -322,7 +328,8 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
         client: OkHttpClient,
         scope: CoroutineScope,
         sendChannel: SendChannel<DownloadState>,
-        configFile: File) {
+        configFile: File,
+    ) {
         // 启动进度发射协程
         val progressJob = scope.launch(Dispatchers.IO) {
             while (isActive && completedBytes.get() < totalFileSize) {
@@ -388,7 +395,7 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
         task: DownloadTaskEntity,
         raf: RandomAccessFile,
         client: OkHttpClient,
-        configFile: File
+        configFile: File,
     ) {
 
         while (pendingChunks.isNotEmpty() && !isPausedOrCanceled.get()) {
@@ -439,13 +446,21 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
         client: OkHttpClient,
         raf: RandomAccessFile,
         start: Long,
-        end: Long
+        end: Long,
     ) {
         // 构建Range请求
         val request = Request.Builder()
             .url(task.url)
             .header("Range", "bytes=$start-$end")
-            .apply { task.headers.forEach { (k, v) -> addHeader(k, v) } }
+            .apply {
+                task.headers.forEach { (k, v) ->
+                    if ("cookie".equals(k, true)) {
+                        saveFromResponse(task.url, v)
+                    } else {
+                        addHeader(k, v)
+                    }
+                }
+            }
             .build()
 
         val response = client.newCall(request).execute()
@@ -469,10 +484,17 @@ class HttpMultiDownloadStrategy : IDownloadStrategy {
     /**
      * 获取文件总大小（无修改）
      */
-    private fun getFileTotalSize(url: String, client: OkHttpClient): Long? {
+    private fun getFileTotalSize(task: DownloadTaskEntity, client: OkHttpClient): Long? {
         return try {
-            val request = Request.Builder().url(url).head().build()
-            client.newCall(request).execute().use { response ->
+            val reqBuilder = Request.Builder().url(task.url).head()
+            task.headers.forEach { (k, v) ->
+                if ("cookie".equals(k, true)) {
+                    saveFromResponse(task.url, v)
+                } else {
+                    reqBuilder.addHeader(k, v)
+                }
+            }
+            client.newCall(reqBuilder.build()).execute().use { response ->
                 if (!response.isSuccessful) {
                     return null
                 }

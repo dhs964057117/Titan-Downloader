@@ -10,6 +10,7 @@ package com.awesome.dhs.tools.downloader.strategy
 import com.awesome.dhs.tools.downloader.db.DownloadTaskEntity
 import com.awesome.dhs.tools.downloader.interfac.IDownloadStrategy
 import com.awesome.dhs.tools.downloader.model.DownloadState
+import com.awesome.dhs.tools.downloader.utils.CookieSerializer.saveFromResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -40,7 +41,15 @@ class HttpSingleDownloadStrategy : IDownloadStrategy {
         val request = Request.Builder()
             .url(task.url)
             .header("Range", "bytes=$downloadedBytes-")
-            .apply { task.headers.forEach { (key, value) -> addHeader(key, value) } }
+            .apply {
+                task.headers.forEach { (key, value) ->
+                    if ("cookie".equals(key, true)) {
+                        saveFromResponse(task.url, value)
+                    } else {
+                        addHeader(key, value)
+                    }
+                }
+            }
             .build()
 
         val response = try {

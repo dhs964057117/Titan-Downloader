@@ -13,6 +13,7 @@ import com.awesome.dhs.tools.downloader.constants.Constant.TASK_REQUEST
 import com.awesome.dhs.tools.downloader.db.jsonToDownloadTaskEntity
 import com.awesome.dhs.tools.downloader.utils.FileNameResolver
 import com.awesome.dhs.tools.downloader.utils.FileUtil
+import com.awesome.dhs.tools.downloader.utils.MimeTypeUtils.getDownloadType
 
 /**
  * 准备工作器
@@ -57,14 +58,16 @@ internal class PrepareWorker(
                 FileUtil.deleteFile(applicationContext, allocated.filePath)
                 return Result.success()
             }
-
+            // 更新 type
+            val type = allocated.fileName.getDownloadType()
             //  这里的 filePath 可能是 "content://..." 或 "/storage/..."
             //  这里的 fileName 是最终真实的文件名
             repository.updateOnPrepareSuccess(
                 id = taskId,
                 filePath = allocated.filePath,
                 tempFilePath = allocated.tempPath,
-                fileName = allocated.fileName
+                fileName = allocated.fileName,
+                type
             )
             Result.success()
         } catch (e: Exception) {

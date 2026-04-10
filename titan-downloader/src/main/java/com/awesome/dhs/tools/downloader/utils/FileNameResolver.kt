@@ -24,7 +24,9 @@ import java.util.UUID
 import java.util.regex.Pattern
 import androidx.core.net.toUri
 import com.awesome.dhs.tools.downloader.Downloader
-import com.awesome.dhs.tools.downloader.utils.FileUtil.getMimeType
+import com.awesome.dhs.tools.downloader.utils.CookieSerializer.saveFromResponse
+import com.awesome.dhs.tools.downloader.utils.MimeTypeUtils.getMimeType
+import com.awesome.dhs.tools.downloader.utils.MimeTypeUtils.isM3u8
 
 /**
  * FileName: AppDatabase
@@ -35,7 +37,7 @@ import com.awesome.dhs.tools.downloader.utils.FileUtil.getMimeType
 internal object FileNameResolver {
 
     private const val MAX_FILENAME_LENGTH = 128
-    private val ILLEGAL_CHARACTERS_REGEX = "[\\\\/:*?\"<>|]".toRegex()
+    val ILLEGAL_CHARACTERS_REGEX = "[\\\\/:*?\"<>|]".toRegex()
     private const val TAG = "FileNameResolver"
     private val mutex = Mutex()
 
@@ -58,8 +60,16 @@ internal object FileNameResolver {
         mutex.withLock { // Use a mutex to ensure atomicity and prevent race conditions
             withContext(Dispatchers.IO) {
                 // 1. 解析文件名 (完善的优先级逻辑)
-                val expectedName = resolveRawFileName(request, client)
-                val mimeType = expectedName.getMimeType()
+                var expectedName = resolveRawFileName(request, client)
+                var mimeType = expectedName.getMimeType()
+
+                // 如果检测到是 m3u8 链接 (通过后缀或 MIME)，强制将最终文件名后缀改为 .mp4
+                if (isM3u8(request.url, expectedName, mimeType)) {
+                    val nameWithoutExt = expectedName.substringBeforeLast('.')
+                        .takeIf { it.isNotEmpty() && it.isNotBlank() } ?: System.currentTimeMillis()
+                    expectedName = "$nameWithoutExt.mp4"
+                    mimeType = "video/mp4"
+                }
 
                 // 准备临时目录
                 val tempDir = File(globalTempDir)
@@ -210,13 +220,10 @@ internal object FileNameResolver {
     }
 
     private fun sanitizeFileName(rawName: String): String {
-        // 1. 剥离查询参数 (作为双重保险)
-        val nameWithoutQuery = rawName.substringBefore('?')
+        // 替换非法字符
+        var sanitizedName = rawName.replace(ILLEGAL_CHARACTERS_REGEX, "")
 
-        // 2. 替换非法字符
-        var sanitizedName = nameWithoutQuery.replace(ILLEGAL_CHARACTERS_REGEX, "_")
-
-        // 3. 截断过长的文件名 (逻辑保持不变)
+        // 截断过长的文件名 (逻辑保持不变)
         if (sanitizedName.length > MAX_FILENAME_LENGTH) {
             val extension = sanitizedName.substringAfterLast('.', "")
             val nameWithoutExtension = sanitizedName.substringBeforeLast('.')
@@ -502,7 +509,13 @@ internal object FileNameResolver {
         try {
             // 优先使用 HEAD 请求以节省流量
             val reqBuilder = Request.Builder().url(request.url).head()
-            request.headers.forEach { (k, v) -> reqBuilder.addHeader(k, v) }
+            request.headers.forEach { (k, v) ->
+                if ("cookie".equals(k, true)) {
+                    saveFromResponse(request.url, v)
+                } else {
+                    reqBuilder.addHeader(k, v)
+                }
+            }
 
             client.newCall(reqBuilder.build()).execute().use { response ->
                 if (response.isSuccessful) {
